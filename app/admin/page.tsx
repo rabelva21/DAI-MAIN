@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { LeaveTable } from '@/components/admin/leave-table';
 import { Button } from '@/components/ui/button';
-import { Download, Upload, Trash, Loader2 } from 'lucide-react'; // <-- Tambah Loader2
+import { Download, Upload, Trash, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +18,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { AdminDashboardStats } from '@/components/admin/admin-stats';
 import { DepartmentStats } from '@/components/admin/department-stats';
-import { useSWRConfig } from 'swr'; // <-- Import SWRConfig
+import { useSWRConfig } from 'swr';
 
 // Komponen aksi Reset Cuti (tetap sama)
 function ResetLeaveButton() {

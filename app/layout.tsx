@@ -3,12 +3,12 @@ import type { Metadata } from 'next';
 import { Outfit } from 'next/font/google';
 import { Header } from '@/components/layout/header';
 import { Toaster } from '@/components/ui/toaster';
-import AuthProvider from './auth-provider'; // Import provider baru
+import AuthProvider from './auth-provider';
 
 const outfit = Outfit({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'PT. DAI - Leave Management System',
+  title: 'PT. DAI - Form Pengajuan Cuti',
   description: 'Sistem Manajemen Cuti Karyawan PT. DAI',
 };
 

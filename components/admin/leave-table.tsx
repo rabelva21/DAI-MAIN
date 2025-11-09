@@ -12,9 +12,7 @@ import {
   ExternalLink,
   Paperclip,
 } from 'lucide-react';
-// --- PERBAIKAN 1: Impor useSWRConfig ---
 import useSWR, { useSWRConfig } from 'swr';
-// ------------------------------------
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
