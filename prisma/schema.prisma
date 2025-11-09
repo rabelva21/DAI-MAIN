@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  fullName  String
+  role      UserRole @default(EMPLOYEE)
+  password  String
+  createdAt DateTime @default(now())
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  remainingLeave Int @default(12)
+
+  leaveRequests LeaveRequest[]
+  hrdComments   LeaveRequest[] @relation("HrdComments")
+}
+
+model Department {
+  id    String @id @default(uuid())
+  name  String @unique
+  users User[]
+
+  maxConcurrentLeave Int @default(2)
+
+  // INI ADALAH BARIS YANG HILANG (FIX UNTUK ERROR 45)
+  leaveRequests LeaveRequest[]
+}
+
+model LeaveRequest {
+  id        String      @id @default(uuid())
+  status    LeaveStatus @default(PENDING)
+  leaveType LeaveType
+  startDate DateTime
+  endDate   DateTime
+  reason    String
+  daysTaken Int
+  proofUrl  String?
+  hrdComment String?
+
+  hrdCommentBy   User?   @relation("HrdComments", fields: [hrdCommentById], references: [id])
+  hrdCommentById String?
+
+  employee   User   @relation(fields: [employeeId], references: [id])
+  employeeId String
+
+  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum UserRole {
+  EMPLOYEE
+  HRD
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  MATERNITY
+}
