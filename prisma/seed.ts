@@ -29,7 +29,7 @@ async function main() {
   const userHrd = await prisma.user.create({
     data: {
       email: 'hrd@ptdai.com',
-      fullName: 'Agus HRD',
+      fullName: 'Hari HRD',
       password: hashedPasswordHrd,
       role: UserRole.HRD,
       remainingLeave: 12,
