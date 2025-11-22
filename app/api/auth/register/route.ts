@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { UserRole } from '@prisma/client';
 
-// Skema validasi Zod
+
 const registerSchema = z.object({
   fullName: z.string().min(3),
   email: z.string().email(),
@@ -15,6 +15,7 @@ const registerSchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
     const validation = registerSchema.safeParse(body);
     if (!validation.success) {
       return NextResponse.json(
@@ -24,7 +25,6 @@ export async function POST(request: Request) {
     }
 
     const { email, fullName, password, departmentId } = validation.data;
-
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -37,7 +37,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Cek apakah departemen ada
     const departmentExists = await prisma.department.findUnique({
       where: { id: departmentId },
     });
@@ -49,22 +48,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // 5. Buat user baru (HANYA SEBAGAI EMPLOYEE)
     const newUser = await prisma.user.create({
       data: {
         fullName,
         email,
         password: hashedPassword,
         departmentId,
-        role: UserRole.EMPLOYEE, // <-- PENTING: Registrasi hanya untuk Karyawan
-        remainingLeave: 12, // Jatah cuti awal
+        role: UserRole.EMPLOYEE, 
+        remainingLeave: 12, 
       },
     });
 
-    // Jangan kembalikan password di response
     const { password: _, ...userWithoutPassword } = newUser;
 
     return NextResponse.json(userWithoutPassword, { status: 201 });
