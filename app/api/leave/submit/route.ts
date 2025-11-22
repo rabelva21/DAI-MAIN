@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json();
-  // Ambil proofUrl dari body, bukan file
+ 
   const { startDate, endDate, leaveType, reason, daysTaken, proofUrl } = data;
   const userId = session.user.id;
   const departmentId = session.user.departmentId;
