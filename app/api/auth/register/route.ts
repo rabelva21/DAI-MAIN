@@ -15,8 +15,6 @@ const registerSchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-
-    // 1. Validasi input
     const validation = registerSchema.safeParse(body);
     if (!validation.success) {
       return NextResponse.json(
@@ -27,7 +25,7 @@ export async function POST(request: Request) {
 
     const { email, fullName, password, departmentId } = validation.data;
 
-    // 2. Cek apakah email sudah ada
+
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
