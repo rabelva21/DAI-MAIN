@@ -13,7 +13,6 @@ import {
   Paperclip,
 } from 'lucide-react';
 import useSWR, { useSWRConfig } from 'swr';
-// Import useRouter (jika sebelumnya ada) sudah dihapus
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -127,8 +126,6 @@ export function LeaveTable() {
     setIsDetailOpen(true);
   };
 
-  // Fungsi handleDelete (telah dihapus)
-
   const handleReview = (
     request: LeaveRequestWithDetails,
     action: 'APPROVED' | 'REJECTED'
@@ -144,7 +141,6 @@ export function LeaveTable() {
     setIsReviewLoading(true);
 
     try {
-      // Menggunakan /api/leave/review (PUT) untuk update status
       const res = await fetch('/api/leave/review', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -313,7 +309,6 @@ export function LeaveTable() {
                           <Eye className="h-4 w-4" />
                         </Button>
                         
-                        {/* TOMBOL APPROVE/REJECT (Hanya jika PENDING) */}
                         {request.status === 'PENDING' && (
                           <>
                             <Button
@@ -332,8 +327,6 @@ export function LeaveTable() {
                             </Button>
                           </>
                         )}
-                        {/* Tombol Delete telah dihapus dari sini */}
-
                       </div>
                     </TableCell>
                   </TableRow>
@@ -343,7 +336,6 @@ export function LeaveTable() {
           </div>
         </div>
 
-        {/* Kontrol Paginasi */}
         <div className="flex items-center justify-between gap-4">
           <div className="text-sm text-gray-600">
             Menampilkan{' '}
@@ -397,7 +389,6 @@ export function LeaveTable() {
           </Pagination>
         </div>
 
-        {/* Dialog Detail & Review (Tidak Berubah) */}
         <Dialog
           open={isDetailOpen}
           onOpenChange={(open) => {
@@ -525,7 +516,6 @@ export function LeaveTable() {
           </DialogContent>
         </Dialog>
 
-        {/* Dialog Review */}
         <Dialog
           open={isReviewOpen}
           onOpenChange={(open) => {
