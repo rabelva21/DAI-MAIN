@@ -8,8 +8,12 @@ export const dynamic = 'force-dynamic';
 // Fitur DELETE (Hapus Permanen)
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  // Perbaikan untuk Next.js 15: params adalah Promise
+  props: { params: Promise<{ id: string }> }
 ) {
+
+  const params = await props.params;
+  
   const session = await auth();
 
   // 1. Cek Otorisasi (Hanya HRD)
