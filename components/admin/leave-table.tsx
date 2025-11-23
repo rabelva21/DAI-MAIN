@@ -11,8 +11,10 @@ import {
   Search,
   ExternalLink,
   Paperclip,
+  Trash2, // <-- Tambahan Import
 } from 'lucide-react';
 import useSWR, { useSWRConfig } from 'swr';
+import { useRouter } from 'next/navigation'; // <-- Tambahan Import
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -32,16 +34,6 @@ import {
   DialogTitle,
   DialogClose,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {
   Pagination,
   PaginationContent,
@@ -69,38 +61,38 @@ import { LeaveRequest, LeaveStatus, LeaveType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 
-// Tipe data (tetap sama)
 type LeaveRequestWithDetails = LeaveRequest & {
   employee: { fullName: string; email: string; remainingLeave: number };
   department: { name: string } | null;
   hrdCommentBy: { fullName: string } | null;
 };
+
 type ApiResponse = {
   data: LeaveRequestWithDetails[];
   totalCount: number;
 };
+
 const leaveTypeLabels: Record<LeaveType, string> = {
   ANNUAL: 'Cuti Tahunan',
   SICK: 'Cuti Sakit',
   MATERNITY: 'Cuti Melahirkan',
 };
+
 const statusLabels: Record<LeaveStatus, string> = {
   PENDING: 'Menunggu',
   APPROVED: 'Disetujui',
   REJECTED: 'Ditolak',
   CANCELLED: 'Dibatalkan',
 };
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 const ITEMS_PER_PAGE = 10;
-// --- Akhir Tipe Data ---
 
 export function LeaveTable() {
   const { toast } = useToast();
-  
-  // --- PERBAIKAN 2: Inisialisasi hook SWRConfig ---
+  const router = useRouter(); // <-- Init Router
   const { mutate: globalMutate } = useSWRConfig();
-  // ----------------------------------------------
-  
+
   const [selectedRequest, setSelectedRequest] =
     useState<LeaveRequestWithDetails | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -118,7 +110,6 @@ export function LeaveTable() {
     setCurrentPage(1);
   }, [statusFilter, searchQuery]);
 
-  // 'mutate' ini adalah mutate lokal untuk tabel ini
   const {
     data: apiResponse,
     error,
@@ -137,6 +128,37 @@ export function LeaveTable() {
     setSelectedRequest(request);
     setIsDetailOpen(true);
   };
+
+  // --- FUNGSI DELETE BARU ---
+  const handleDelete = async (id: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus data ini secara permanen?')) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/leaves/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        toast({
+          title: 'Berhasil',
+          description: 'Data pengajuan berhasil dihapus',
+        });
+        mutate(); // Refresh tabel
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || 'Gagal menghapus data');
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+  // ---------------------------
 
   const handleReview = (
     request: LeaveRequestWithDetails,
@@ -168,18 +190,9 @@ export function LeaveTable() {
         throw new Error(data.error || 'Gagal mereview');
       }
 
-      // --- PERBAIKAN 3: Panggil globalMutate untuk refresh komponen lain ---
-
-      // Mutate lokal (untuk tabel ini)
       mutate();
-      
-      // Mutate global (untuk Statistik Kuota Departemen)
       globalMutate('/api/admin/department-stats');
-      
-      // Mutate global (untuk Statistik Kartu Atas)
       globalMutate('/api/admin/stats');
-
-      // -----------------------------------------------------------------
 
       setIsReviewOpen(false);
       setReviewNotes('');
@@ -220,7 +233,7 @@ export function LeaveTable() {
         <h2 className="text-2xl font-semibold text-black">
           Daftar Pengajuan Cuti
         </h2>
-        {/* Filter dan Search Bar */}
+        
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -251,30 +264,17 @@ export function LeaveTable() {
           </div>
         </div>
 
-        {/* Tabel Data */}
         <div className="rounded-lg border border-gray-200 bg-white">
           <div className="w-full overflow-x-auto">
             <Table className="min-w-max">
               <TableHeader>
                 <TableRow className="bg-gray-50 hover:bg-gray-100">
-                  <TableHead className="font-semibold text-black">
-                    Karyawan
-                  </TableHead>
-                  <TableHead className="font-semibold text-black">
-                    Jenis Cuti
-                  </TableHead>
-                  <TableHead className="font-semibold text-black">
-                    Tanggal
-                  </TableHead>
-                  <TableHead className="font-semibold text-black">
-                    Durasi
-                  </TableHead>
-                  <TableHead className="font-semibold text-black">
-                    Status
-                  </TableHead>
-                  <TableHead className="text-right font-semibold text-black">
-                    Aksi
-                  </TableHead>
+                  <TableHead className="font-semibold text-black">Karyawan</TableHead>
+                  <TableHead className="font-semibold text-black">Jenis Cuti</TableHead>
+                  <TableHead className="font-semibold text-black">Tanggal</TableHead>
+                  <TableHead className="font-semibold text-black">Durasi</TableHead>
+                  <TableHead className="font-semibold text-black">Status</TableHead>
+                  <TableHead className="text-right font-semibold text-black">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -342,6 +342,8 @@ export function LeaveTable() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        
+                        {/* TOMBOL APPROVE/REJECT (Hanya jika PENDING) */}
                         {request.status === 'PENDING' && (
                           <>
                             <Button
@@ -360,6 +362,19 @@ export function LeaveTable() {
                             </Button>
                           </>
                         )}
+
+                        {/* --- TOMBOL DELETE (BARU) --- */}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(request.id)}
+                          className="bg-red-500 hover:bg-red-600"
+                          title="Hapus Permanen"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        {/* ------------------------------ */}
+
                       </div>
                     </TableCell>
                   </TableRow>
@@ -423,9 +438,7 @@ export function LeaveTable() {
           </Pagination>
         </div>
 
-        {/* --- Dialog (Semua kode dialog di bawah ini tetap sama) --- */}
-        
-        {/* === DIALOG DETAIL (Tombol Mata) === */}
+        {/* Dialog Detail & Review (Sama seperti sebelumnya, tidak berubah) */}
         <Dialog
           open={isDetailOpen}
           onOpenChange={(open) => {
@@ -433,7 +446,7 @@ export function LeaveTable() {
             if (!open) setSelectedRequest(null);
           }}
         >
-          <DialogContent className="sm:max-w-lg">
+           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Detail Pengajuan Cuti</DialogTitle>
               <DialogDescription>
@@ -555,7 +568,6 @@ export function LeaveTable() {
           </DialogContent>
         </Dialog>
 
-        {/* === DIALOG REVIEW (Tombol Centang/Silang) === */}
         <Dialog
           open={isReviewOpen}
           onOpenChange={(open) => {
@@ -617,7 +629,6 @@ export function LeaveTable() {
   );
 }
 
-// Komponen LoadingSkeleton
 function TableLoadingSkeleton() {
   return (
     <>
