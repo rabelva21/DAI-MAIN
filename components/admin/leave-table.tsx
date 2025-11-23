@@ -11,10 +11,9 @@ import {
   Search,
   ExternalLink,
   Paperclip,
-  // Trash2 telah dihapus
 } from 'lucide-react';
 import useSWR, { useSWRConfig } from 'swr';
-// useRouter telah dihapus
+// Import useRouter (jika sebelumnya ada) sudah dihapus
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -90,7 +89,6 @@ const ITEMS_PER_PAGE = 10;
 
 export function LeaveTable() {
   const { toast } = useToast();
-  // useRouter telah dihapus
   const { mutate: globalMutate } = useSWRConfig();
 
   const [selectedRequest, setSelectedRequest] =
@@ -129,7 +127,7 @@ export function LeaveTable() {
     setIsDetailOpen(true);
   };
 
-  // --- FUNGSI handleDelete (SUDAH DIHAPUS) ---
+  // Fungsi handleDelete (telah dihapus)
 
   const handleReview = (
     request: LeaveRequestWithDetails,
@@ -146,6 +144,7 @@ export function LeaveTable() {
     setIsReviewLoading(true);
 
     try {
+      // Menggunakan /api/leave/review (PUT) untuk update status
       const res = await fetch('/api/leave/review', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -333,8 +332,7 @@ export function LeaveTable() {
                             </Button>
                           </>
                         )}
-
-                        {/* TOMBOL DELETE (SUDAH DIHAPUS) */}
+                        {/* Tombol Delete telah dihapus dari sini */}
 
                       </div>
                     </TableCell>
@@ -399,7 +397,7 @@ export function LeaveTable() {
           </Pagination>
         </div>
 
-        {/* Dialog Detail & Review (Sama seperti sebelumnya, tidak berubah) */}
+        {/* Dialog Detail & Review (Tidak Berubah) */}
         <Dialog
           open={isDetailOpen}
           onOpenChange={(open) => {
