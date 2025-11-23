@@ -9,12 +9,12 @@ import {
   Eye,
   Filter,
   Search,
-  ExternalLink,
   Paperclip,
-  Trash2, // <-- Tambahan Import
+  Trash2, 
+  ExternalLink,
 } from 'lucide-react';
 import useSWR, { useSWRConfig } from 'swr';
-import { useRouter } from 'next/navigation'; // <-- Tambahan Import
+import { useRouter } from 'next/navigation'; 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -90,7 +90,7 @@ const ITEMS_PER_PAGE = 10;
 
 export function LeaveTable() {
   const { toast } = useToast();
-  const router = useRouter(); // <-- Init Router
+  const router = useRouter();
   const { mutate: globalMutate } = useSWRConfig();
 
   const [selectedRequest, setSelectedRequest] =
@@ -129,14 +129,15 @@ export function LeaveTable() {
     setIsDetailOpen(true);
   };
 
-  // --- FUNGSI DELETE BARU ---
+  // --- FUNGSI DELETE (SUDAH DIPERBAIKI URL-NYA) ---
   const handleDelete = async (id: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus data ini secara permanen?')) {
       return;
     }
 
     try {
-      const res = await fetch(`/api/admin/leaves/${id}`, {
+      // PERBAIKAN URL: Sesuai folder "api/leave/[id]"
+      const res = await fetch(`/api/leave/${id}`, {
         method: 'DELETE',
       });
 
@@ -158,7 +159,7 @@ export function LeaveTable() {
       });
     }
   };
-  // ---------------------------
+  // ------------------------------------------------
 
   const handleReview = (
     request: LeaveRequestWithDetails,
@@ -343,7 +344,6 @@ export function LeaveTable() {
                           <Eye className="h-4 w-4" />
                         </Button>
                         
-                        {/* TOMBOL APPROVE/REJECT (Hanya jika PENDING) */}
                         {request.status === 'PENDING' && (
                           <>
                             <Button
@@ -363,7 +363,6 @@ export function LeaveTable() {
                           </>
                         )}
 
-                        {/* --- TOMBOL DELETE (BARU) --- */}
                         <Button
                           size="sm"
                           variant="destructive"
@@ -373,7 +372,6 @@ export function LeaveTable() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                        {/* ------------------------------ */}
 
                       </div>
                     </TableCell>
@@ -384,7 +382,6 @@ export function LeaveTable() {
           </div>
         </div>
 
-        {/* Kontrol Paginasi */}
         <div className="flex items-center justify-between gap-4">
           <div className="text-sm text-gray-600">
             Menampilkan{' '}
@@ -438,7 +435,7 @@ export function LeaveTable() {
           </Pagination>
         </div>
 
-        {/* Dialog Detail & Review (Sama seperti sebelumnya, tidak berubah) */}
+        {/* Dialog Detail */}
         <Dialog
           open={isDetailOpen}
           onOpenChange={(open) => {
@@ -507,7 +504,6 @@ export function LeaveTable() {
                   <Label className="text-gray-500">Alasan</Label>
                   <p className="col-span-2">{selectedRequest.reason}</p>
                 </div>
-
                 {selectedRequest.proofUrl && (
                   <div className="grid grid-cols-3 items-start gap-4">
                     <Label className="text-gray-500">Bukti</Label>
@@ -542,7 +538,6 @@ export function LeaveTable() {
                     </div>
                   </div>
                 )}
-
                 <hr />
                 <div className="grid grid-cols-3 items-center gap-4">
                   <Label className="text-gray-500">Status</Label>
@@ -568,6 +563,7 @@ export function LeaveTable() {
           </DialogContent>
         </Dialog>
 
+        {/* Dialog Review */}
         <Dialog
           open={isReviewOpen}
           onOpenChange={(open) => {
