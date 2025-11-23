@@ -9,12 +9,12 @@ import {
   Eye,
   Filter,
   Search,
-  Paperclip,
-  Trash2, 
   ExternalLink,
+  Paperclip,
+  // Trash2 telah dihapus
 } from 'lucide-react';
 import useSWR, { useSWRConfig } from 'swr';
-import { useRouter } from 'next/navigation'; 
+// useRouter telah dihapus
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -90,7 +90,7 @@ const ITEMS_PER_PAGE = 10;
 
 export function LeaveTable() {
   const { toast } = useToast();
-  const router = useRouter();
+  // useRouter telah dihapus
   const { mutate: globalMutate } = useSWRConfig();
 
   const [selectedRequest, setSelectedRequest] =
@@ -129,37 +129,7 @@ export function LeaveTable() {
     setIsDetailOpen(true);
   };
 
-  // --- FUNGSI DELETE (SUDAH DIPERBAIKI URL-NYA) ---
-  const handleDelete = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus data ini secara permanen?')) {
-      return;
-    }
-
-    try {
-      // PERBAIKAN URL: Sesuai folder "api/leave/[id]"
-      const res = await fetch(`/api/leave/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (res.ok) {
-        toast({
-          title: 'Berhasil',
-          description: 'Data pengajuan berhasil dihapus',
-        });
-        mutate(); // Refresh tabel
-      } else {
-        const data = await res.json();
-        throw new Error(data.error || 'Gagal menghapus data');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    }
-  };
-  // ------------------------------------------------
+  // --- FUNGSI handleDelete (SUDAH DIHAPUS) ---
 
   const handleReview = (
     request: LeaveRequestWithDetails,
@@ -344,6 +314,7 @@ export function LeaveTable() {
                           <Eye className="h-4 w-4" />
                         </Button>
                         
+                        {/* TOMBOL APPROVE/REJECT (Hanya jika PENDING) */}
                         {request.status === 'PENDING' && (
                           <>
                             <Button
@@ -363,15 +334,7 @@ export function LeaveTable() {
                           </>
                         )}
 
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDelete(request.id)}
-                          className="bg-red-500 hover:bg-red-600"
-                          title="Hapus Permanen"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {/* TOMBOL DELETE (SUDAH DIHAPUS) */}
 
                       </div>
                     </TableCell>
@@ -382,6 +345,7 @@ export function LeaveTable() {
           </div>
         </div>
 
+        {/* Kontrol Paginasi */}
         <div className="flex items-center justify-between gap-4">
           <div className="text-sm text-gray-600">
             Menampilkan{' '}
@@ -435,7 +399,7 @@ export function LeaveTable() {
           </Pagination>
         </div>
 
-        {/* Dialog Detail */}
+        {/* Dialog Detail & Review (Sama seperti sebelumnya, tidak berubah) */}
         <Dialog
           open={isDetailOpen}
           onOpenChange={(open) => {
