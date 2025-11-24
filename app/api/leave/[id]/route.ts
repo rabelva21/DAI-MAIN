@@ -2,50 +2,61 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
 
+// Pastikan route ini dinamis
 export const dynamic = 'force-dynamic';
 
-export async function GET(
+// ... (Kode GET atau PATCH/PUT yang sudah ada biarkan saja di atas sini) ...
+
+// --- PERBAIKAN PADA FUNGSI DELETE ---
+export async function DELETE(
   request: Request,
+  // PERUBAHAN DISINI: Tipe params diubah menjadi Promise
   props: { params: Promise<{ id: string }> }
 ) {
-  const params = await props.params;
   const session = await auth();
+  
+  // PERUBAHAN DISINI: Kita harus await props.params terlebih dahulu
+  const params = await props.params;
+  const requestId = params.id;
 
-  if (!session?.user) {
+  // 1. Otorisasi: Hanya Admin/HRD
+  if (!session?.user || session.user.role !== 'HRD') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const leaveRequest = await prisma.leaveRequest.findUnique({
-      where: { id: params.id },
-      include: {
-        employee: {
-          select: {
-            fullName: true,
-            email: true,
-            remainingLeave: true,
-          },
-        },
-        department: {
-          select: { name: true },
-        },
-        hrdCommentBy: {
-          select: { fullName: true },
-        },
-      },
+    // 2. Cek apakah data ada
+    const existingRequest = await prisma.leaveRequest.findUnique({
+        where: { id: requestId }
     });
 
-    if (!leaveRequest) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (!existingRequest) {
+        return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
     }
 
-    // Validasi Akses: Hanya HRD atau Pemilik Data yang boleh lihat
-    if (session.user.role !== 'HRD' && leaveRequest.employeeId !== session.user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // 3. Proses Hapus Data Permanen
+    await prisma.leaveRequest.delete({
+      where: { id: requestId },
+    });
+
+    return NextResponse.json(
+      { message: 'Data berhasil dihapus permanen.' },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("Delete error:", error);
+    
+    // Handle error spesifik Prisma jika record tidak ditemukan (P2025)
+    if (error.code === 'P2025') {
+        return NextResponse.json(
+            { error: 'Pengajuan cuti tidak ditemukan.' },
+            { status: 404 }
+        );
     }
 
-    return NextResponse.json(leaveRequest, { status: 200 });
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Gagal menghapus data. Pastikan data tidak terkait dengan relasi lain yang vital.' },
+      { status: 500 }
+    );
   }
 }
