@@ -14,7 +14,7 @@ async function main() {
   await prisma.department.createMany({
     data: [
       { name: 'Engineering', maxConcurrentLeave: 2 },
-      { name: 'Marketing', maxConcurrentLeave: 3 },
+      { name: 'Marketing', maxConcurrentLeave: 2 },
       { name: 'Sales', maxConcurrentLeave: 4 },
       { name: 'Finance', maxConcurrentLeave: 2 },
       { name: 'Operations', maxConcurrentLeave: 5 },
@@ -39,6 +39,22 @@ async function main() {
 
   console.log('Created HRD user:');
   console.log(userHrd);
+
+const hashedPasswordAdmin2 = await bcrypt.hash('password1234', 10); // Gunakan password berbeda
+const userAdmin2 = await prisma.user.create({
+    data: {
+        email: 'hrd2@ptdai.com', 
+        fullName: 'priska',   
+        password: hashedPasswordAdmin2,
+        role: UserRole.HRD,
+        remainingLeave: 12,
+        departmentId: null,
+    },
+});
+
+console.log('Created second HRD user:');
+console.log(userAdmin2);
+
   console.log('Seeding finished. ✨');
 }
 
