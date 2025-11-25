@@ -1,65 +1,62 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
-import { Prisma } from '@prisma/client';
 
-export const dynamic = 'force-dynamic';
+export async function DELETE(
+    request: Request,
+    props: { params: Promise<{ id: string }> }
+) {
+    // 1. Await params (Wajib untuk Next.js 15+)
+    const params = await props.params;
+    const requestIdToDelete = params.id;
 
-export async function GET(request: Request) {
-  const session = await auth();
+    const session = await auth();
 
-  // 1. Cek Otorisasi Admin
-  if (!session?.user || session.user.role !== 'HRD') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // 2. Ambil Query Params (Search, Filter, Pagination)
-  const { searchParams } = new URL(request.url);
-  const statusFilter = searchParams.get('status');
-  const searchQuery = searchParams.get('search') || '';
-  const page = parseInt(searchParams.get('page') || '1');
-  const limit = parseInt(searchParams.get('limit') || '10');
-  const skip = (page - 1) * limit;
-
-  try {
-    // 3. Buat Filter Pencarian
-    const whereClause: Prisma.LeaveRequestWhereInput = {
-      OR: [
-        { employee: { fullName: { contains: searchQuery, mode: 'insensitive' } } },
-        { department: { name: { contains: searchQuery, mode: 'insensitive' } } },
-      ],
-    };
-
-    if (statusFilter && statusFilter !== 'all') {
-      whereClause.status = statusFilter as any;
+    // 2. Otorisasi: Hanya HRD yang diizinkan
+    if (!session?.user || session.user.role !== 'HRD') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 4. Ambil Data & Total Hitungan (Transaction)
-    const [leaveRequests, totalCount] = await prisma.$transaction([
-      prisma.leaveRequest.findMany({
-        where: whereClause,
-        include: {
-          employee: {
-            select: { fullName: true, email: true, remainingLeave: true },
-          },
-          department: { select: { name: true } },
-          hrdCommentBy: { select: { fullName: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: skip,
-        take: limit,
-      }),
-      prisma.leaveRequest.count({ where: whereClause }),
-    ]);
+    try {
+        // Gunakan Transaction agar aman (Database Atomic)
+        await prisma.$transaction(async (tx) => {
+            // A. Cari data cuti dulu sebelum dihapus untuk pengecekan
+            const leaveRequest = await tx.leaveRequest.findUnique({
+                where: { id: requestIdToDelete },
+            });
 
-    // 5. Kirim Data ke Frontend
-    return NextResponse.json({
-      data: leaveRequests,
-      totalCount: totalCount,
-    });
+            if (!leaveRequest) {
+                throw new Error("Data cuti tidak ditemukan");
+            }
 
-  } catch (error) {
-    console.error("Error fetching leaves:", error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
+            // B. Logika Refund: Jika status APPROVED & tipe ANNUAL, kembalikan jatah cuti user
+            if (leaveRequest.status === 'APPROVED' && leaveRequest.leaveType === 'ANNUAL') {
+                await tx.user.update({
+                    where: { id: leaveRequest.employeeId },
+                    data: {
+                        remainingLeave: {
+                            increment: leaveRequest.daysTaken // Kembalikan jumlah hari
+                        }
+                    }
+                });
+            }
+
+            // C. Hapus Data Cuti Permanen (Hard Delete)
+            await tx.leaveRequest.delete({
+                where: { id: requestIdToDelete },
+            });
+        });
+
+        return NextResponse.json({ message: 'Catatan cuti berhasil dihapus permanen dan kuota telah disesuaikan (jika perlu).' }, { status: 200 });
+
+    } catch (error: any) {
+        console.error("Delete Error:", error); // Log error agar terlihat di terminal
+        
+        // Handle jika ID tidak ketemu
+        if (error.message === "Data cuti tidak ditemukan") {
+            return NextResponse.json({ error: 'Data tidak ditemukan.' }, { status: 404 });
+        }
+
+        return NextResponse.json({ error: 'Gagal menghapus catatan cuti.' }, { status: 500 });
+    }
 }
