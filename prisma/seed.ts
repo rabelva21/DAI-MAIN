@@ -19,6 +19,7 @@ async function main() {
       { name: 'Finance', maxConcurrentLeave: 2 },
       { name: 'Operations', maxConcurrentLeave: 5 },
       { name: 'Human Resources', maxConcurrentLeave: 2 },
+      { name: 'MIS', maxConcurrentLeave: 2 }
     ],
   });
 

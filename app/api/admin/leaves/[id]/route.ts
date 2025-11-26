@@ -2,25 +2,101 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-// Hapus atau abaikan import auth, kita akan menggunakan JWT manual
-// import { auth } from '@/auth'; 
-import jwt from 'jsonwebtoken'; // <<< TAMBAHKAN INI
+import jwt from 'jsonwebtoken'; 
+import { LeaveStatus } from '@prisma/client';
 
-// Gunakan Secret Key yang sama dengan yang ada di .env Anda
 const JWT_SECRET = process.env.JWT_SECRET || 'a9bde15fa6d0d2d02e7786783b75352fa6e1cf4cc81813dddb91abf7c0dddeb3'; 
 
+// FUNGSI 1: PATCH (Persetujuan/Penolakan Cuti) - Agar router tidak error saat ada request PATCH
+export async function PATCH(
+    request: Request,
+    props: { params: { id: string } }
+) {
+    // --- Otorisasi JWT Manual ---
+    const authorizationHeader = request.headers.get('authorization');
+    const token = authorizationHeader?.split(' ')[1]; 
+    
+    if (!token) {
+        return NextResponse.json({ error: 'Token tidak tersedia.' }, { status: 401 });
+    }
+
+    let hrdUserId: string;
+    let userRole: string;
+    try {
+        const decoded: any = jwt.verify(token, JWT_SECRET);
+        hrdUserId = decoded.userId; 
+        userRole = decoded.role;
+    } catch (e) {
+        return NextResponse.json({ error: 'Token Akses tidak valid.' }, { status: 401 });
+    }
+    
+    if (userRole !== 'HRD') {
+        return NextResponse.json({ error: 'Akses ditolak: Bukan HRD' }, { status: 403 }); 
+    }
+    // --- Akhir Otorisasi ---
+
+    try {
+        const body = await request.json();
+        const { newStatus, hrdComment } = body;
+        const requestId = props.params.id; 
+        
+        const leaveRequest = await prisma.leaveRequest.findUnique({ where: { id: requestId } });
+
+        if (!leaveRequest) {
+            return NextResponse.json({ error: 'Request not found' }, { status: 404 });
+        }
+        
+        const oldStatus = leaveRequest.status;
+        const isAnnual = leaveRequest.leaveType === 'ANNUAL';
+        const daysTaken = leaveRequest.daysTaken;
+
+        await prisma.$transaction(async (tx) => {
+            await tx.leaveRequest.update({
+                where: { id: requestId },
+                data: {
+                    status: newStatus as LeaveStatus,
+                    hrdComment: hrdComment,
+                    hrdCommentById: hrdUserId, 
+                    updatedAt: new Date(),
+                },
+            });
+            if (newStatus === 'APPROVED' && oldStatus !== 'APPROVED' && isAnnual) {
+                await tx.user.update({
+                    where: { id: leaveRequest.employeeId },
+                    data: { remainingLeave: { decrement: daysTaken } },
+                });
+            }
+            if (oldStatus === 'APPROVED' && newStatus !== 'APPROVED' && isAnnual) {
+                await tx.user.update({
+                    where: { id: leaveRequest.employeeId },
+                    data: { remainingLeave: { increment: daysTaken } },
+                });
+            }
+        });
+
+        return NextResponse.json({ success: true, message: `Status berhasil diubah menjadi ${newStatus}` }, { status: 200 });
+
+    } catch (error: any) {
+        console.error("PATCH Admin Leaves Error:", error);
+        return NextResponse.json(
+            { error: 'Internal Server Error' },
+            { status: 500 }
+        );
+    }
+}
+
+
+// --- FUNGSI 2: DELETE (Penghapusan Permanen / HARD DELETE) ---
 
 export async function DELETE(
     request: Request,
-    props: { params: Promise<{ id: string }> }
+    props: { params: { id: string } } 
 ) {
-    // 1. Await params
-    const params = await props.params;
-    const requestIdToDelete = params.id;
+    const requestIdToDelete = props.params.id;
 
-    // >>> START: PERBAIKAN OTORISASI MANUAL <<<
+    // --- START: OTORISASI JWT MANUAL ---
     const authorizationHeader = request.headers.get('authorization');
-    const token = authorizationHeader?.split(' ')[1]; // Ambil string Token setelah 'Bearer '
+    const token = authorizationHeader?.split(' ')[1]; 
     
     if (!token) {
         return NextResponse.json({ error: 'Token tidak tersedia.' }, { status: 401 });
@@ -28,24 +104,19 @@ export async function DELETE(
 
     let userRole: string;
     try {
-        // Verifikasi Token JWT secara manual
         const decoded: any = jwt.verify(token, JWT_SECRET);
-        userRole = decoded.role; // Ambil role dari payload Token
+        userRole = decoded.role;
     } catch (e) {
-        // Token tidak valid (expired, signature mismatch, dll.)
         return NextResponse.json({ error: 'Token Akses tidak valid.' }, { status: 401 });
     }
     
-    // 2. Otorisasi: Hanya HRD yang diizinkan (Cek role dari Token yang diverifikasi)
     if (userRole !== 'HRD') {
-        return NextResponse.json({ error: 'Akses ditolak: Bukan HRD' }, { status: 403 });
+        return NextResponse.json({ error: 'Akses ditolak: Bukan HRD' }, { status: 403 }); 
     }
-    // >>> END: PERBAIKAN OTORISASI MANUAL <<<
+    // --- END: PERBAIKAN OTORISASI MANUAL ---
 
     try {
-        // Gunakan Transaction agar aman (Database Atomic)
         await prisma.$transaction(async (tx) => {
-            // A. Cari data cuti dulu sebelum dihapus untuk pengecekan
             const leaveRequest = await tx.leaveRequest.findUnique({
                 where: { id: requestIdToDelete },
             });
@@ -54,19 +125,18 @@ export async function DELETE(
                 throw new Error("Data cuti tidak ditemukan");
             }
 
-            // B. Logika Refund: Jika status APPROVED & tipe ANNUAL, kembalikan jatah cuti user
+            // Logika Refund: Jika status APPROVED & tipe ANNUAL, kembalikan jatah cuti user
             if (leaveRequest.status === 'APPROVED' && leaveRequest.leaveType === 'ANNUAL') {
                 await tx.user.update({
-                    where: { id: leaveRequest.employeeId }, 
+                    where: { id: leaveRequest.employeeId },
                     data: {
                         remainingLeave: {
-                            increment: leaveRequest.daysTaken 
+                            increment: leaveRequest.daysTaken
                         }
                     }
                 });
             }
 
-            // C. Hapus Data Cuti Permanen (Hard Delete)
             await tx.leaveRequest.delete({
                 where: { id: requestIdToDelete },
             });

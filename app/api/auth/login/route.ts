@@ -1,4 +1,5 @@
 // app/api/auth/login/route.ts
+
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
@@ -22,7 +23,20 @@ export async function POST(request: Request) {
         }
 
         // [2] Cari Pengguna
-        const user = await prisma.user.findUnique({ where: { email } });
+        // Tambahkan include departmentId untuk memastikan data dimuat, meskipun sebenarnya sudah ada di model User
+        const user = await prisma.user.findUnique({ 
+             where: { email },
+             select: {
+                 id: true,
+                 email: true,
+                 fullName: true,
+                 password: true,
+                 role: true,
+                 remainingLeave: true,
+                 departmentId: true, // Ambil departmentId di sini
+                 createdAt: true,
+             }
+        });
 
         if (!user) {
             return NextResponse.json(
@@ -43,8 +57,13 @@ export async function POST(request: Request) {
 
         // [4] BUAT TOKEN JWT (Login Sukses)
         const token = jwt.sign(
-            { userId: user.id, role: user.role }, // Payload token
-            JWT_SECRET, // Secret key Anda
+            { 
+                userId: user.id, 
+                role: user.role, 
+                // Menggunakan ID yang sudah diambil dari user.departmentId
+                departmentId: user.departmentId
+            }, 
+            JWT_SECRET, 
             { expiresIn: '1d' } // Masa berlaku token 1 hari
         );
         
@@ -65,8 +84,8 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error("Login API Error:", error);
         return NextResponse.json(
-             { error: 'Format permintaan JSON salah atau terjadi error internal.' }, 
-             { status: 400 } 
+            { error: 'Internal Server Error' }, 
+            { status: 500 } 
         );
     }
 }
