@@ -24,7 +24,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-// --- Impor Diperbarui ---
 import {
   Dialog,
   DialogContent,
@@ -45,12 +44,10 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip'; // Import Tooltip
+} from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
-import { Eye, ExternalLink, Paperclip } from 'lucide-react';
-// --- PERBAIKAN: Impor Alert ---
+import { Eye, ExternalLink, Paperclip, Calendar, Clock, FileText, UserCheck } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-// -----------------------------
 import {
   Pagination,
   PaginationContent,
@@ -62,8 +59,9 @@ import { LeaveRequest, LeaveStatus, LeaveType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { Skeleton } from '../ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 
-// Tipe data (tetap sama)
+// Tipe data
 type LeaveRequestWithDetails = LeaveRequest & {
   hrdCommentBy: { fullName: string } | null;
 };
@@ -84,7 +82,6 @@ const statusLabels: Record<LeaveStatus, string> = {
   CANCELLED: 'Dibatalkan',
 };
 const ITEMS_PER_PAGE = 5;
-// --- Akhir Tipe Data ---
 
 export function HistoryTable() {
   const { toast } = useToast();
@@ -94,13 +91,14 @@ export function HistoryTable() {
     useState<LeaveRequestWithDetails | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
+  // Menggunakan endpoint /history yang sudah diperbaiki (Hybrid Auth)
   const {
     data: apiResponse,
     error,
     mutate,
     isLoading,
   } = useSWR<ApiResponse>(
-    `/api/leave/my-history?page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
+    `/api/leave/history?page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
     fetcher
   );
 
@@ -110,13 +108,13 @@ export function HistoryTable() {
 
   const getStatusBadge = (status: LeaveStatus) => {
     const styles = {
-      PENDING: 'bg-gray-100 text-gray-800 border-gray-300',
-      APPROVED: 'bg-green-50 text-green-700 border-green-200',
-      REJECTED: 'bg-red-50 text-red-700 border-red-200',
-      CANCELLED: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+      PENDING: 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200',
+      APPROVED: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200',
+      REJECTED: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
+      CANCELLED: 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200',
     };
     return (
-      <Badge variant="outline" className={styles[status]}>
+      <Badge variant="outline" className={`${styles[status]} px-3 py-1`}>
         {statusLabels[status]}
       </Badge>
     );
@@ -161,12 +159,12 @@ export function HistoryTable() {
     <TooltipProvider>
       <div className="space-y-4">
         {/* --- TAMPILAN DESKTOP (TABLE) --- */}
-        <div className="hidden rounded-lg border border-gray-200 bg-white md:block">
+        <div className="hidden rounded-lg border border-gray-200 bg-white md:block shadow-sm">
           <div className="w-full overflow-x-auto">
             <Table className="min-w-max">
               <TableHeader>
                 <TableRow className="bg-gray-50 hover:bg-gray-100">
-                  <TableHead className="font-semibold text-black">
+                  <TableHead className="font-semibold text-black w-[180px]">
                     Jenis Cuti
                   </TableHead>
                   <TableHead className="font-semibold text-black">
@@ -178,7 +176,7 @@ export function HistoryTable() {
                   <TableHead className="font-semibold text-black">
                     Status
                   </TableHead>
-                  <TableHead className="font-semibold text-black">
+                  <TableHead className="font-semibold text-black w-[200px]">
                     Komentar HRD
                   </TableHead>
                   <TableHead className="text-right font-semibold text-black">
@@ -187,11 +185,10 @@ export function HistoryTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {/* --- PERBAIKAN: Memanggil Skeleton di dalam TableBody --- */}
                 {isLoading && <LoadingSkeleton />}
                 {error && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-red-500">
+                    <TableCell colSpan={6} className="text-center text-red-500 py-8">
                       Gagal memuat riwayat pengajuan.
                     </TableCell>
                   </TableRow>
@@ -200,70 +197,65 @@ export function HistoryTable() {
                   <TableRow>
                     <TableCell
                       colSpan={6}
-                      className="text-center text-gray-500"
+                      className="text-center text-gray-500 py-8"
                     >
                       Anda belum pernah mengajukan cuti.
                     </TableCell>
                   </TableRow>
                 )}
-                {/* -------------------------------------------------------- */}
                 {requests?.map((request) => (
-                  <TableRow key={request.id} className="hover:bg-gray-50">
-                    <TableCell className="text-gray-700">
+                  <TableRow key={request.id} className="hover:bg-gray-50 transition-colors">
+                    <TableCell className="text-gray-700 font-medium">
                       <div className="flex items-center gap-2">
                         {leaveTypeLabels[request.leaveType]}
-                        {/* --- PERBAIKAN: Ganti title dengan Tooltip --- */}
+                        {/* --- PERBAIKAN 1: BUKTI BISA DIKLIK LANGSUNG --- */}
                         {request.proofUrl && (
                           <Tooltip delayDuration={100}>
-                            <TooltipTrigger>
-                              <Paperclip className="h-3 w-3 text-blue-500" />
+                            <TooltipTrigger asChild>
+                              <a 
+                                href={request.proofUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center rounded-full p-1 hover:bg-gray-200 transition-colors"
+                                onClick={(e) => e.stopPropagation()} // Mencegah klik baris tabel
+                              >
+                                <Paperclip className="h-4 w-4 text-blue-600" />
+                              </a>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Ada lampiran</p>
+                              <p>Lihat Bukti Lampiran</p>
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        {/* ------------------------------------------- */}
+                        {/* --------------------------------------------- */}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-gray-600 text-sm">
+                      <div className="flex flex-col">
+                        <span>{format(new Date(request.startDate), 'dd MMM yyyy', { locale: idLocale })}</span>
+                        <span className="text-xs text-gray-400">s/d</span>
+                        <span>{format(new Date(request.endDate), 'dd MMM yyyy', { locale: idLocale })}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-gray-700">
-                      {format(new Date(request.startDate), 'dd MMM yyyy', {
-                        locale: idLocale,
-                      })}{' '}
-                      -{' '}
-                      {format(new Date(request.endDate), 'dd MMM yyyy', {
-                        locale: idLocale,
-                      })}
-                    </TableCell>
-                    <TableCell className="text-gray-700">
-                      {request.daysTaken} hari
+                      <Badge variant="secondary">{request.daysTaken} hari</Badge>
                     </TableCell>
                     <TableCell>
-                      <div
-                        className="cursor-pointer inline-block hover:opacity-80 transition-opacity"
-                        onClick={() => handleViewDetail(request)}
-                        title="Klik untuk melihat detail"
-                      >
                         {getStatusBadge(request.status)}
-                      </div>
                     </TableCell>
-                    <TableCell className="max-w-xs truncate text-gray-700">
+                    <TableCell className="max-w-[200px] text-gray-600 text-sm truncate" title={request.hrdComment || ''}>
                       {request.hrdComment || '-'}
-                      {request.hrdCommentBy && (
-                        <span className="block text-xs text-gray-500">
-                          (Oleh: {request.hrdCommentBy.fullName})
-                        </span>
-                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => handleViewDetail(request)}
                           title="Lihat Detail"
+                          className="h-8 w-8 p-0"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4 text-gray-500" />
                         </Button>
                         {request.status === 'PENDING' && (
                           <AlertDialog>
@@ -272,31 +264,27 @@ export function HistoryTable() {
                                 size="sm"
                                 variant="destructive"
                                 disabled={isCancelling}
+                                className="h-8 text-xs"
                               >
                                 Batalkan
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                <AlertDialogTitle>Batalkan Pengajuan?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Tindakan ini akan membatalkan pengajuan cuti
-                                  Anda. Anda tidak dapat mengurungkan tindakan
-                                  ini.
+                                  Tindakan ini akan membatalkan pengajuan cuti Anda. 
+                                  Kuota cuti Anda akan dikembalikan jika sebelumnya terpotong.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Close</AlertDialogCancel>
+                                <AlertDialogCancel>Kembali</AlertDialogCancel>
                                 <AlertDialogAction
                                   disabled={isCancelling}
-                                  onClick={() =>
-                                    handleCancelRequest(request.id)
-                                  }
+                                  onClick={() => handleCancelRequest(request.id)}
                                   className="bg-red-600 hover:bg-red-700"
                                 >
-                                  {isCancelling
-                                    ? 'Membatalkan...'
-                                    : 'Ya, Batalkan'}
+                                  {isCancelling ? 'Memproses...' : 'Ya, Batalkan'}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -314,7 +302,6 @@ export function HistoryTable() {
         {/* --- TAMPILAN SELULER (CARDS) --- */}
         <div className="space-y-4 md:hidden">
           {isLoading && <MobileLoadingSkeleton />}
-          {/* --- PERBAIKAN: Menggunakan Alert --- */}
           {error && (
             <Alert variant="destructive">
               <AlertTitle>Error</AlertTitle>
@@ -323,99 +310,79 @@ export function HistoryTable() {
               </AlertDescription>
             </Alert>
           )}
-          {/* ---------------------------------- */}
           {!isLoading && requests && requests.length === 0 && (
-            <p className="text-center text-gray-500">
+            <p className="text-center text-gray-500 py-8">
               Anda belum pernah mengajukan cuti.
             </p>
           )}
           {requests?.map((request) => (
-            <Card key={request.id} className="shadow-sm">
-              <CardContent className="p-4 space-y-3">
+            <Card key={request.id} className="shadow-sm border-l-4 border-l-primary">
+              <CardContent className="p-4 space-y-4">
                 <div className="flex justify-between items-start">
-                  <div className="font-medium text-black flex items-center gap-2">
-                    {leaveTypeLabels[request.leaveType]}
-                    {/* --- PERBAIKAN: Ganti title dengan Tooltip --- */}
-                    {request.proofUrl && (
-                      <Tooltip delayDuration={100}>
-                        <TooltipTrigger>
-                          <Paperclip className="h-4 w-4 text-blue-500" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Ada lampiran</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                    {/* ------------------------------------------- */}
+                  <div>
+                    <p className="font-semibold text-black flex items-center gap-2">
+                      {leaveTypeLabels[request.leaveType]}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {format(new Date(request.startDate), 'dd MMM yyyy', { locale: idLocale })} - {format(new Date(request.endDate), 'dd MMM yyyy', { locale: idLocale })}
+                    </p>
                   </div>
-                  <div
-                    className="cursor-pointer"
-                    onClick={() => handleViewDetail(request)}
-                  >
-                    {getStatusBadge(request.status)}
-                  </div>
+                  {getStatusBadge(request.status)}
                 </div>
 
-                <div className="text-sm text-gray-700">
-                  <p className="font-medium">
-                    {format(new Date(request.startDate), 'dd MMM yyyy', {
-                      locale: idLocale,
-                    })}{' '}
-                    -{' '}
-                    {format(new Date(request.endDate), 'dd MMM yyyy', {
-                      locale: idLocale,
-                    })}
-                  </p>
-                  <p className="text-gray-500">{request.daysTaken} hari</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                   <div>
+                      <p className="text-xs text-gray-500">Durasi</p>
+                      <p className="font-medium">{request.daysTaken} Hari</p>
+                   </div>
+                   {request.proofUrl && (
+                     <div className="flex items-end justify-end">
+                       <a 
+                          href={request.proofUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs flex items-center gap-1 text-blue-600 hover:underline"
+                        >
+                          <Paperclip className="h-3 w-3" /> Lihat Bukti
+                       </a>
+                     </div>
+                   )}
                 </div>
-
-                {request.hrdComment && (
-                  <CardDescription>
-                    <span className="font-medium text-gray-800">
-                      Komentar HRD:{' '}
-                    </span>
-                    {request.hrdComment}
-                  </CardDescription>
-                )}
               </CardContent>
-              <CardFooter className="flex justify-end gap-2 bg-gray-50 p-3">
-                <Button
+              <CardFooter className="flex justify-between items-center bg-gray-50 p-3 rounded-b-lg">
+                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => handleViewDetail(request)}
-                  title="Lihat Detail"
+                  className="text-xs h-8"
                 >
-                  <Eye className="mr-2 h-4 w-4" />
+                  <Eye className="mr-2 h-3 w-3" />
                   Detail
                 </Button>
+
                 {request.status === 'PENDING' && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
                         size="sm"
                         variant="destructive"
+                        className="text-xs h-8"
                         disabled={isCancelling}
                       >
                         Batalkan
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                       {/* Mobile Alert Dialog Content same as desktop */}
+                       <AlertDialogHeader>
+                        <AlertDialogTitle>Batalkan Pengajuan?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Tindakan ini akan membatalkan pengajuan cuti Anda. Anda
-                          tidak dapat mengurungkan tindakan ini.
+                          Yakin ingin membatalkan pengajuan ini?
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Close</AlertDialogCancel>
-                        <AlertDialogAction
-                          disabled={isCancelling}
-                          onClick={() => handleCancelRequest(request.id)}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          {isCancelling ? 'Membatalkan...' : 'Ya, Batalkan'}
-                        </AlertDialogAction>
+                        <AlertDialogCancel>Tidak</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleCancelRequest(request.id)}>Ya, Batalkan</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -425,12 +392,11 @@ export function HistoryTable() {
           ))}
         </div>
 
-        {/* --- KONTROL PAGINASI (SELALU TAMPIL) --- */}
+        {/* --- KONTROL PAGINASI --- */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between gap-4">
-            <div className="text-sm text-gray-600">
-              Halaman <strong>{currentPage}</strong> dari{' '}
-              <strong>{totalPages}</strong>
+          <div className="flex items-center justify-between gap-4 py-4">
+            <div className="text-xs text-gray-500">
+              Hal. {currentPage} dari {totalPages}
             </div>
             <Pagination>
               <PaginationContent>
@@ -469,7 +435,7 @@ export function HistoryTable() {
           </div>
         )}
 
-        {/* --- DIALOG DETAIL (UNTUK KARYAWAN) --- */}
+        {/* --- PERBAIKAN 2: DIALOG DETAIL YANG LEBIH RAPI & CANTIK --- */}
         <Dialog
           open={isDetailOpen}
           onOpenChange={(open) => {
@@ -477,82 +443,99 @@ export function HistoryTable() {
             if (!open) setSelectedRequest(null);
           }}
         >
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Detail Riwayat Cuti</DialogTitle>
+          <DialogContent className="sm:max-w-md md:max-w-lg rounded-xl">
+            <DialogHeader className="pb-4 border-b">
+              <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Detail Pengajuan Cuti
+              </DialogTitle>
               <DialogDescription>
-                Detail lengkap pengajuan cuti Anda.
+                Informasi lengkap mengenai status dan detail pengajuan Anda.
               </DialogDescription>
             </DialogHeader>
+            
             {selectedRequest && (
-              <div className="grid gap-4 py-4 text-sm">
-                <div className="grid grid-cols-3 items-center gap-4">
-                  <Label className="text-gray-500">Status</Label>
-                  <div className="col-span-2">
-                    {getStatusBadge(selectedRequest.status)}
+              <div className="space-y-6 py-4">
+                
+                {/* Status Section */}
+                <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
+                  <span className="text-sm font-medium text-gray-500">Status Saat Ini</span>
+                  {getStatusBadge(selectedRequest.status)}
+                </div>
+
+                {/* Main Info Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500 uppercase tracking-wide">Jenis Cuti</Label>
+                    <p className="font-medium text-gray-900">{leaveTypeLabels[selectedRequest.leaveType]}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Durasi
+                    </Label>
+                    <p className="font-medium text-gray-900">{selectedRequest.daysTaken} Hari</p>
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                        <Calendar className="h-3 w-3" /> Tanggal
+                    </Label>
+                    <p className="font-medium text-gray-900">
+                      {format(new Date(selectedRequest.startDate), 'EEEE, dd MMMM yyyy', { locale: idLocale })}
+                      <span className="mx-2 text-gray-400">→</span>
+                      {format(new Date(selectedRequest.endDate), 'EEEE, dd MMMM yyyy', { locale: idLocale })}
+                    </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 items-center gap-4">
-                  <Label className="text-gray-500">Jenis Cuti</Label>
-                  <span className="col-span-2">
-                    {leaveTypeLabels[selectedRequest.leaveType]}
-                  </span>
+
+                <Separator />
+
+                {/* Reason Section */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Alasan Pengajuan</Label>
+                  <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-700 leading-relaxed border">
+                    {selectedRequest.reason}
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 items-center gap-8">
-                  <Label className="text-gray-500">Tanggal</Label>
-                  <span className="col-span-2">
-                    {format(new Date(selectedRequest.startDate), 'dd MMM yyyy', {
-                      locale: idLocale,
-                    })}{' '}
-                    -{' '}
-                    {format(new Date(selectedRequest.endDate), 'dd MMM yyyy', {
-                      locale: idLocale,
-                    })}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 items-center gap-4">
-                  <Label className="text-gray-500">Durasi</Label>
-                  <span className="col-span-2">
-                    {selectedRequest.daysTaken} hari
-                  </span>
-                </div>
-                <hr className="col-span-3" />
-                <div className="grid grid-cols-3 items-start gap-4">
-                  <Label className="text-gray-500">Alasan Anda</Label>
-                  <p className="col-span-2">{selectedRequest.reason}</p>
-                </div>
+
+                {/* Proof Section */}
                 {selectedRequest.proofUrl && (
-                  <div className="grid grid-cols-3 items-start gap-4">
-                    <Label className="text-gray-500">Bukti</Label>
-                    <Button
-                      asChild
-                      variant="link"
-                      size="sm"
-                      className="col-span-2 p-0 justify-start h-auto"
-                    >
-                      <a
-                        href={selectedRequest.proofUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-blue-600"
-                      >
-                        Lihat Lampiran
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </Button>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold text-gray-700">Bukti Lampiran</Label>
+                    <div>
+                        <Button asChild variant="outline" className="w-full justify-start gap-2 border-dashed border-gray-400">
+                            <a href={selectedRequest.proofUrl} target="_blank" rel="noopener noreferrer">
+                                <Paperclip className="h-4 w-4" />
+                                Lihat Dokumen Bukti (Klik untuk membuka)
+                                <ExternalLink className="h-3 w-3 ml-auto opacity-50" />
+                            </a>
+                        </Button>
+                    </div>
                   </div>
                 )}
-                {selectedRequest.hrdComment && (
-                  <div className="grid grid-cols-3 items-start gap-4">
-                    <Label className="text-gray-500">Komentar HRD</Label>
-                    <p className="col-span-2">{selectedRequest.hrdComment}</p>
+
+                {/* HRD Comment Section (Hanya jika ada) */}
+                {(selectedRequest.hrdComment || selectedRequest.hrdCommentBy) && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center gap-2 mb-1">
+                        <UserCheck className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-semibold text-blue-800">Tanggapan HRD</span>
+                    </div>
+                    <p className="text-sm text-gray-800 italic">
+                      "{selectedRequest.hrdComment || 'Tidak ada catatan tambahan.'}"
+                    </p>
+                    {selectedRequest.hrdCommentBy && (
+                        <p className="text-xs text-blue-600 text-right mt-2">
+                            — {selectedRequest.hrdCommentBy.fullName}
+                        </p>
+                    )}
                   </div>
                 )}
               </div>
             )}
+            
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline">
+                <Button type="button" variant="default" className="w-full sm:w-auto">
                   Tutup
                 </Button>
               </DialogClose>
@@ -564,58 +547,36 @@ export function HistoryTable() {
   );
 }
 
-// --- PERBAIKAN: Komponen Skeleton (Desktop) ---
-// Hanya mengembalikan TableRow, bukan Table utuh
 function LoadingSkeleton() {
   return (
     <>
       {[...Array(ITEMS_PER_PAGE)].map((_, i) => (
         <TableRow key={i}>
-          <TableCell>
-            <Skeleton className="h-4 w-20" />
-          </TableCell>
-          <TableCell>
-            <Skeleton className="h-4 w-36" />
-          </TableCell>
-          <TableCell>
-            <Skeleton className="h-4 w-10" />
-          </TableCell>
-          <TableCell>
-            <Skeleton className="h-6 w-20 rounded-full" />
-          </TableCell>
-          <TableCell>
-            <Skeleton className="h-4 w-40" />
-          </TableCell>
-          <TableCell className="text-right">
-            <Skeleton className="h-9 w-10 ml-auto" />
-          </TableCell>
+          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+          <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+          <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto rounded-md" /></TableCell>
         </TableRow>
       ))}
     </>
   );
 }
-// ---------------------------------------------
 
-// Komponen Skeleton (Seluler)
 function MobileLoadingSkeleton() {
   return (
     <div className="space-y-4">
       {[...Array(ITEMS_PER_PAGE)].map((_, i) => (
         <Card key={i}>
           <CardContent className="p-4 space-y-3">
-            <div className="flex justify-between items-start">
-              <Skeleton className="h-5 w-24" />
-              <Skeleton className="h-6 w-20 rounded-full" />
+            <div className="flex justify-between">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-6 w-16 rounded-full" />
             </div>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-4 w-16" />
-            </div>
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-24" />
           </CardContent>
-          <CardFooter className="flex justify-end gap-2 bg-gray-50 p-3">
-            <Skeleton className="h-9 w-24" />
-            <Skeleton className="h-9 w-24" />
-          </CardFooter>
         </Card>
       ))}
     </div>

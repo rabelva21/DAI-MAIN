@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
+const path = require('path'); 
+
 const nextConfig = {
-  // output: 'export', // <-- HAPUS BARIS INI
+ 
+  outputFileTracingRoot: path.join(__dirname, '../../'), 
+  
   eslint: {
     ignoreDuringBuilds: true,
   },

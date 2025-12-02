@@ -2,54 +2,58 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-// Hapus atau abaikan import { auth }
-// import { auth } from '@/auth'; 
-import jwt from 'jsonwebtoken'; // <<< TAMBAHKAN INI
+import { auth } from '@/auth'; 
+import jwt from 'jsonwebtoken'; 
 
 export const dynamic = 'force-dynamic';
 
-// Secret Key Anda (Wajib sama dengan yang di .env)
 const JWT_SECRET = process.env.JWT_SECRET || 'a9bde15fa6d0d2d02e7786783b75352fa6e1cf4cc81813dddb91abf7c0dddeb3'; 
 
-
 export async function GET(request: Request) {
-    
-    // --- PERBAIKAN 1: OTORISASI JWT MANUAL (Menggantikan await auth()) ---
-    const authorizationHeader = request.headers.get('authorization');
-    const token = authorizationHeader?.split(' ')[1]; 
-    
-    if (!token) {
-        return NextResponse.json({ error: 'Token tidak tersedia.' }, { status: 401 });
+    let userId: string | undefined;
+    let userRole: string | undefined;
+
+    // --- 1. CEK SESSION BROWSER ---
+    const session = await auth();
+    if (session && session.user) {
+        userId = session.user.id;
+        userRole = session.user.role;
     }
 
-    let userId: string;
-    let userRole: string;
-    
-    try {
-        const decoded: any = jwt.verify(token, JWT_SECRET);
-        userId = decoded.userId; 
-        userRole = decoded.role;
-    } catch (e) {
-        return NextResponse.json({ error: 'Token Akses tidak valid.' }, { status: 401 });
+    // --- 2. JIKA KOSONG, CEK HEADER TOKEN (POSTMAN) ---
+    if (!userId) {
+        const authorizationHeader = request.headers.get('authorization');
+        const token = authorizationHeader?.split(' ')[1]; 
+        
+        if (token) {
+            try {
+                const decoded: any = jwt.verify(token, JWT_SECRET);
+                userId = decoded.userId; 
+                userRole = decoded.role;
+            } catch (e) {
+                console.error("Token invalid");
+            }
+        }
     }
     
-    // Verifikasi Role Karyawan (Role Otorisasi untuk Endpoint ini)
+    // --- 3. VALIDASI FINAL ---
+    if (!userId) {
+        return NextResponse.json({ error: 'Unauthorized: Harap login.' }, { status: 401 });
+    }
+    
     if (userRole !== 'EMPLOYEE') {
         return NextResponse.json({ error: 'Akses ditolak: Hanya untuk Karyawan.' }, { status: 403 });
     }
-    // --- AKHIR PERBAIKAN OTORISASI ---
 
+    // --- LOGIKA PENGAMBILAN DATA ---
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '5', 10);
     const skip = (page - 1) * limit;
-    // userId diambil dari Token
 
     try {
-        // whereClause menggunakan userId yang diambil dari Token
         const whereClause = { employeeId: userId }; 
 
-        // Menggunakan Prisma Transaction untuk pagination dan total count
         const [leaveRequests, totalCount] = await prisma.$transaction([
             prisma.leaveRequest.findMany({
                 where: whereClause,
@@ -74,7 +78,7 @@ export async function GET(request: Request) {
             totalCount: totalCount,
         });
     } catch (error) {
-        console.error(error);
+        console.error("History API Error:", error);
         return NextResponse.json(
             { error: 'Internal Server Error' },
             { status: 500 }

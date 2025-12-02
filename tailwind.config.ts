@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import tailwindAnimate from 'tailwindcss-animate'; // <--- 1. TAMBAHKAN IMPORT INI
 
 const config: Config = {
   darkMode: ['class'],
@@ -85,6 +86,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  // 2. UBAH BAGIAN INI (Ganti require dengan variabel import)
+  plugins: [tailwindAnimate], 
 };
 export default config;

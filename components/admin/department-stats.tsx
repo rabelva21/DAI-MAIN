@@ -19,6 +19,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 
+// Fetcher standar
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 interface DepartmentStat {
@@ -45,12 +46,16 @@ function StatsLoadingSkeleton() {
   );
 }
 
+// Pastikan ada kata kunci 'export' di depan function
 export function DepartmentStats() {
   const {
     data: stats,
     error,
     isLoading,
   } = useSWR<DepartmentStat[]>('/api/admin/department-stats', fetcher);
+
+  // Validasi: Pastikan data yang diterima benar-benar Array
+  const isDataArray = Array.isArray(stats);
 
   return (
     <Card className="shadow-sm">
@@ -59,13 +64,19 @@ export function DepartmentStats() {
       </CardHeader>
       <CardContent>
         {isLoading && <StatsLoadingSkeleton />}
-        {error && (
-          <div className="flex items-center gap-2 text-red-600">
+        
+        {/* Tampilkan pesan error jika fetch gagal ATAU data bukan array */}
+        {(error || (!isLoading && !isDataArray)) && (
+          <div className="flex items-center gap-2 text-red-600 p-4 bg-red-50 rounded-md border border-red-200">
             <AlertTriangle className="h-4 w-4" />
-            <p className="text-sm">Gagal memuat statistik departemen.</p>
+            <p className="text-sm">
+              {error ? "Gagal memuat data." : "Data tidak tersedia atau Anda tidak memiliki akses."}
+            </p>
           </div>
         )}
-        {stats && !isLoading && !error && (
+
+        {/* Render tabel HANYA jika data valid (Array) */}
+        {isDataArray && !isLoading && !error && (
           <Table>
             <TableHeader>
               <TableRow>
