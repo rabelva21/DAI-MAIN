@@ -8,17 +8,8 @@
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
-    
-    // --- PERBAIKAN DI SINI ---
-    // Tambahkan baseUrl agar path alias bekerja dari root
-    "baseUrl": ".", 
-    
-    // Ubah moduleResolution kembali ke "node" atau "nodenext" (tergantung versi) 
-    // "bundler" terkadang konflik dengan path alias di API routes.
-    // Jika "bundler" adalah default baru, coba "node" atau hapus baris ini.
-    "moduleResolution": "node", 
-    // --- AKHIR PERBAIKAN ---
-    
+    // UBAH INI MENJADI bundler
+    "moduleResolution": "bundler", 
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
@@ -28,8 +19,10 @@
         "name": "next"
       }
     ],
+    // Pastikan baseUrl dan paths ada untuk @/ imports
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"] // Alias sudah benar
+      "@/*": ["./*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
