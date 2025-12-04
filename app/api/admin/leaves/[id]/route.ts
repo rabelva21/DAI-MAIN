@@ -5,16 +5,14 @@ import { LeaveStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
-// --- FUNGSI 1: PATCH (Approve/Reject Cuti) ---
 export async function PATCH(
     request: Request,
     props: { params: Promise<{ id: string }> }
 ) {
     const params = await props.params;
-    const requestId = params.id; 
+    const requestId = params.id;
     const session = await auth();
 
-    // Validasi Role
     if (!session?.user || session.user.role !== 'HRD') {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -22,24 +20,21 @@ export async function PATCH(
     try {
         const body = await request.json();
         const { newStatus, hrdComment } = body;
-        
-        // Ambil data lama untuk perbandingan status
-        const leaveRequest = await prisma.leaveRequest.findUnique({ 
-            where: { id: requestId } 
+
+        const leaveRequest = await prisma.leaveRequest.findUnique({
+            where: { id: requestId }
         });
 
         if (!leaveRequest) {
             return NextResponse.json({ error: 'Request not found' }, { status: 404 });
         }
-        
+
         const oldStatus = leaveRequest.status;
         const isAnnual = leaveRequest.leaveType === 'ANNUAL';
         const daysTaken = leaveRequest.daysTaken;
 
         await prisma.$transaction(async (tx) => {
-            
-            // A. Simpan/Update data persetujuan di tabel LeaveApproval (Persetujuan_Cuti)
-            // Ini perbaikan utamanya: hrdComment tidak lagi di LeaveRequest
+            // 1. Update/Create Approval di tabel LeaveApproval
             await tx.leaveApproval.upsert({
                 where: { leaveRequestId: requestId },
                 create: {
@@ -57,7 +52,7 @@ export async function PATCH(
                 }
             });
 
-            // B. Update status di tabel Utama (LeaveRequest)
+            // 2. Update status di tabel LeaveRequest
             await tx.leaveRequest.update({
                 where: { id: requestId },
                 data: {
@@ -66,16 +61,14 @@ export async function PATCH(
                 },
             });
 
-            // C. Logic Kuota Cuti (Update ke tabel Karyawan)
+            // 3. Logic Kuota Cuti (Gunakan tx.karyawan)
             if (isAnnual) {
-                // Jika Disetujui (sebelumnya belum): Kurangi
                 if (newStatus === 'APPROVED' && oldStatus !== 'APPROVED') {
                     await tx.karyawan.update({
                         where: { id: leaveRequest.employeeId },
                         data: { remainingLeave: { decrement: daysTaken } },
                     });
-                } 
-                // Jika Batal Disetujui (sebelumnya approved): Refund
+                }
                 else if (oldStatus === 'APPROVED' && newStatus !== 'APPROVED') {
                     await tx.karyawan.update({
                         where: { id: leaveRequest.employeeId },
@@ -88,15 +81,13 @@ export async function PATCH(
         return NextResponse.json({ success: true });
 
     } catch (error: any) {
-        console.error("Update Error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
-// --- FUNGSI 2: DELETE (Hapus Permanen) ---
 export async function DELETE(
     request: Request,
-    props: { params: Promise<{ id: string }> } 
+    props: { params: Promise<{ id: string }> }
 ) {
     const params = await props.params;
     const requestId = params.id;
@@ -108,21 +99,18 @@ export async function DELETE(
 
     try {
         await prisma.$transaction(async (tx) => {
-            // A. Cari dulu datanya untuk memastikan record ada
             const leaveRequest = await tx.leaveRequest.findUnique({
                 where: { id: requestId },
             });
 
-            if (!leaveRequest) {
-                throw new Error("P2025"); 
-            }
+            if (!leaveRequest) throw new Error("P2025");
 
-            // B. Hapus Data Approval Terkait Dulu (PENTING AGAR TIDAK ERROR FOREIGN KEY)
+            // Hapus Approval dulu
             await tx.leaveApproval.deleteMany({
                 where: { leaveRequestId: requestId }
             });
 
-            // C. Logika Refund Jatah Cuti sebelum hapus (GANTI tx.user JADI tx.karyawan)
+            // Refund Kuota (Gunakan tx.karyawan)
             if (leaveRequest.status === 'APPROVED' && leaveRequest.leaveType === 'ANNUAL') {
                 const userExists = await tx.karyawan.findUnique({
                     where: { id: leaveRequest.employeeId }
@@ -131,16 +119,12 @@ export async function DELETE(
                 if (userExists) {
                     await tx.karyawan.update({
                         where: { id: leaveRequest.employeeId },
-                        data: {
-                            remainingLeave: {
-                                increment: leaveRequest.daysTaken
-                            }
-                        }
+                        data: { remainingLeave: { increment: leaveRequest.daysTaken } }
                     });
                 }
             }
 
-            // D. Hapus Data Cuti Utama
+            // Hapus Request
             await tx.leaveRequest.delete({
                 where: { id: requestId },
             });
@@ -149,12 +133,9 @@ export async function DELETE(
         return NextResponse.json({ message: 'Deleted' }, { status: 200 });
 
     } catch (error: any) {
-        console.error("Delete Error:", error);
-
         if (error.message === "P2025" || error.code === 'P2025') {
             return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
         }
-
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

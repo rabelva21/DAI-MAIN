@@ -7,6 +7,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const session = await auth();
+  
+  // Cek jika user bukan HRD (role 'HRD' di tabel HRD)
+  // Perhatikan: Karena kita pisah tabel, session.user.role diisi manual di auth.config.ts
   if (!session?.user || session.user.role !== 'HRD') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -31,24 +34,30 @@ export async function GET(request: Request) {
       whereClause.status = statusFilter;
     }
 
-    // Gunakan $transaction untuk mengambil data dan total count dalam satu query
     const [leaveRequests, totalCount] = await prisma.$transaction([
       prisma.leaveRequest.findMany({
         where: whereClause,
         include: {
+          // Relasi ke Karyawan
           employee: {
             select: {
               fullName: true,
               email: true,
-              remainingLeave: true, // <-- Penting untuk dialog detail
+              remainingLeave: true,
             },
           },
+          // Relasi ke Departemen
           department: {
             select: { name: true },
           },
-          hrdCommentBy: {
-            select: { fullName: true },
-          },
+          // Relasi ke Approval (Pengganti hrdCommentBy)
+          approval: {
+            include: {
+              hrd: { // Ambil nama HRD dari tabel HRD
+                select: { fullName: true }
+              }
+            }
+          }
         },
         orderBy: {
           createdAt: 'desc',
@@ -61,8 +70,15 @@ export async function GET(request: Request) {
       }),
     ]);
 
+    // Format ulang data agar sesuai dengan frontend yang mengharapkan 'hrdCommentBy'
+    const formattedData = leaveRequests.map(req => ({
+        ...req,
+        hrdComment: req.approval?.comment || null,
+        hrdCommentBy: req.approval?.hrd ? { fullName: req.approval.hrd.fullName } : null
+    }));
+
     return NextResponse.json({
-      data: leaveRequests,
+      data: formattedData,
       totalCount: totalCount,
     });
   } catch (error) {
