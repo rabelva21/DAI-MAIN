@@ -3,62 +3,96 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "postgresql" // atau "mysql" sesuaikan dengan provider Anda
   url      = env("DATABASE_URL")
 }
 
+// 1. Model Karyawan (User)
+// Di kode tetap "User", tapi di database jadi tabel "Karyawan"
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  fullName  String
-  role      UserRole @default(EMPLOYEE)
-  password  String
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid()) @map("id_karyawan")
+  email          String   @unique @map("email")
+  fullName       String   @map("nama_lengkap")
+  password       String   @map("kata_sandi")
+  role           UserRole @default(EMPLOYEE) @map("peran") // Enum juga bisa dimap jika perlu, tapi column namenya di-indonesiakan
+  remainingLeave Int      @default(12) @map("sisa_cuti")
+  createdAt      DateTime @default(now()) @map("dibuat_pada")
 
-  departmentId String?
+  // Relasi
+  departmentId String?     @map("id_departemen")
   department   Department? @relation(fields: [departmentId], references: [id])
 
-  remainingLeave Int @default(12)
-
   leaveRequests LeaveRequest[]
-  hrdComments   LeaveRequest[] @relation("HrdComments")
+  
+  // Relasi untuk approval (sebagai HRD)
+  approvals     LeaveApproval[]
+
+  @@map("Karyawan") // Nama tabel di database
 }
 
+// 2. Model Departemen
 model Department {
-  id    String @id @default(uuid())
-  name  String @unique
-  users User[]
+  id                 String @id @default(uuid()) @map("id_departemen")
+  name               String @unique @map("nama")
+  maxConcurrentLeave Int    @default(2) @map("maks_cuti_bersamaan")
 
-  maxConcurrentLeave Int @default(2)
-
-  // INI ADALAH BARIS YANG HILANG (FIX UNTUK ERROR 45)
+  users         User[]
   leaveRequests LeaveRequest[]
+
+  @@map("Departemen")
 }
 
+// 3. Model Permintaan Cuti
 model LeaveRequest {
-  id        String      @id @default(uuid())
-  status    LeaveStatus @default(PENDING)
-  leaveType LeaveType
-  startDate DateTime
-  endDate   DateTime
-  reason    String
-  daysTaken Int
-  proofUrl  String?
-  hrdComment String?
+  id           String      @id @default(uuid()) @map("id_permintaan_cuti")
+  
+  // Relasi Karyawan
+  employeeId   String      @map("id_karyawan")
+  employee     User        @relation(fields: [employeeId], references: [id])
 
-  hrdCommentBy   User?   @relation("HrdComments", fields: [hrdCommentById], references: [id])
-  hrdCommentById String?
-
-  employee   User   @relation(fields: [employeeId], references: [id])
-  employeeId String
-
+  // Relasi Departemen
+  departmentId String?     @map("id_departemen")
   department   Department? @relation(fields: [departmentId], references: [id])
-  departmentId String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Data Cuti
+  leaveType    LeaveType   @map("jenis_cuti")
+  status       LeaveStatus @default(PENDING) @map("status")
+  startDate    DateTime    @map("tanggal_mulai")
+  endDate      DateTime    @map("tanggal_akhir")
+  reason       String      @map("alasan")
+  daysTaken    Int         @map("durasi_hari")
+  proofUrl     String?     @map("url_bukti")
+  
+  // Relasi ke Tabel Persetujuan (One-to-One atau One-to-Many tergantung logika, di sini One-to-One agar sesuai ERD)
+  approval     LeaveApproval?
+
+  // Timestamp
+  createdAt    DateTime    @default(now()) @map("dibuat_pada")
+  updatedAt    DateTime    @updatedAt @map("diperbarui_pada")
+
+  @@map("Permintaan_Cuti")
 }
 
+// 4. Model Persetujuan Cuti (Tabel Baru)
+model LeaveApproval {
+  id                String   @id @default(uuid()) @map("id_persetujuan_cuti")
+  
+  // Relasi ke Permintaan Cuti
+  leaveRequestId    String   @unique @map("id_permintaan_cuti")
+  leaveRequest      LeaveRequest @relation(fields: [leaveRequestId], references: [id])
+
+  // Relasi ke HRD (User dengan role HRD)
+  hrdId             String   @map("id_hrd")
+  hrd               User     @relation(fields: [hrdId], references: [id])
+
+  approvalDate      DateTime @default(now()) @map("tanggal_persetujuan")
+  finalStatus       LeaveStatus @map("status_final")
+  comment           String?  @map("keterangan")
+
+  @@map("Persetujuan_Cuti")
+}
+
+// Enum tetap bahasa Inggris di kode untuk konsistensi logika if/else
 enum UserRole {
   EMPLOYEE
   HRD
