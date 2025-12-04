@@ -1,16 +1,13 @@
-// app/api/auth/register/route.ts
-
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { UserRole } from '@prisma/client';
 
 // Skema Validasi Input (Zod)
 const registerSchema = z.object({
     fullName: z.string().min(3, "Nama lengkap harus minimal 3 karakter."),
     email: z.string().email("Format email tidak valid."),
-    departmentId: z.string().uuid("ID Departemen tidak valid."),
+    departmentId: z.string().min(1, "ID Departemen tidak valid."),
     password: z.string().min(8, "Password harus minimal 8 karakter."),
 });
 
@@ -22,7 +19,6 @@ export async function POST(request: Request) {
         const validation = registerSchema.safeParse(body);
         if (!validation.success) {
             return NextResponse.json(
-                // Mengembalikan detail error Zod untuk feedback frontend yang lebih baik
                 { error: 'Input tidak valid', details: validation.error.format() },
                 { status: 400 } // Bad Request
             );
@@ -30,19 +26,18 @@ export async function POST(request: Request) {
 
         const { email, fullName, password, departmentId } = validation.data;
 
-        // 2. Cek Duplikasi Email
-        const existingUser = await prisma.user.findUnique({
-            where: { email },
-        });
+        // 2. Cek Duplikasi Email (Di Karyawan & HRD)
+        const existingKaryawan = await prisma.karyawan.findUnique({ where: { email } });
+        const existingHRD = await prisma.hRD.findUnique({ where: { email } });
 
-        if (existingUser) {
+        if (existingKaryawan || existingHRD) {
             return NextResponse.json(
                 { error: 'Email ini sudah terdaftar' },
-                { status: 409 } // Conflict (Sesuai skenario pengujian)
+                { status: 409 } // Conflict
             );
         }
 
-        // 3. Cek Keberadaan Departemen (Memastikan Foreign Key valid)
+        // 3. Cek Keberadaan Departemen
         const departmentExists = await prisma.department.findUnique({
             where: { id: departmentId },
         });
@@ -50,27 +45,27 @@ export async function POST(request: Request) {
         if (!departmentExists) {
             return NextResponse.json(
                 { error: 'Departemen tidak ditemukan' },
-                { status: 400 } // Bad Request
+                { status: 400 }
             );
         }
 
         // 4. Hashing Password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 5. Buat User Baru di Database
-        const newUser = await prisma.user.create({
+        // 5. Buat Karyawan Baru di Database (Table: Karyawan)
+        const newKaryawan = await prisma.karyawan.create({
             data: {
                 fullName,
                 email,
                 password: hashedPassword,
                 departmentId,
-                role: UserRole.EMPLOYEE, // Role Karyawan
-                remainingLeave: 12, // Default sisa cuti awal (sesuai seed data)
+                remainingLeave: 12, // Default sisa cuti
             },
         });
 
-        // 6. Bersihkan Password dari Response dan Kembalikan Sukses (201 Created)
-        const { password: _, ...userWithoutPassword } = newUser;
+        // 6. Bersihkan Password dari Response
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password: _, ...userWithoutPassword } = newKaryawan;
 
         return NextResponse.json(
             { 
@@ -82,7 +77,6 @@ export async function POST(request: Request) {
         
     } catch (error) {
         console.error("Registrasi API Error:", error);
-        
         return NextResponse.json(
             { error: 'Internal Server Error' },
             { status: 500 }

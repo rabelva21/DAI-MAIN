@@ -11,22 +11,22 @@ export async function GET() {
   }
 
   try {
-    // 1. Ambil semua data dari database
-    const users = await prisma.user.findMany();
+    // 1. Ambil semua data dari database (PERBAIKAN: Ambil Karyawan dan HRD terpisah)
+    const employees = await prisma.karyawan.findMany();
+    const hrds = await prisma.hRD.findMany();
     const departments = await prisma.department.findMany();
     const leaveRequests = await prisma.leaveRequest.findMany();
 
     const backupData = {
       exportedAt: new Date().toISOString(),
-      users,
+      employees, // Ganti users jadi employees
+      hrds,      // Tambahkan HRD
       departments,
       leaveRequests,
     };
 
-    // 2. Buat nama file dengan timestamp
     const fileName = `dai_backup_${new Date().toISOString().split('T')[0]}.json`;
 
-    // 3. Kembalikan sebagai file JSON untuk diunduh
     return new NextResponse(JSON.stringify(backupData, null, 2), {
       status: 200,
       headers: {

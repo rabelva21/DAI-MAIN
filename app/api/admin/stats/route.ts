@@ -12,14 +12,12 @@ export async function GET() {
 
   try {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to start of today
+    today.setHours(0, 0, 0, 0); 
     const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1); // Set to start of tomorrow
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // 1. Get total employees
-    const totalEmployeesPromise = prisma.user.count({
-      where: { role: 'EMPLOYEE' },
-    });
+    // 1. Get total employees (PERBAIKAN: Gunakan prisma.karyawan)
+    const totalEmployeesPromise = prisma.karyawan.count();
 
     // 2. Get pending requests
     const pendingRequestsPromise = prisma.leaveRequest.count({

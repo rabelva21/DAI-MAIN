@@ -1,25 +1,34 @@
-// app/api/auth/login/route.ts
+// app/api/login/route.ts
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
+// Gunakan secret dari env
+const JWT_SECRET = process.env.JWT_SECRET || 'a9bde15fa6d0d2d02e7786783b75352fa6e1cf4cc81813dddb91abf7c0dddeb3'; 
 
 export async function POST(request: Request) {
-    // Pastikan request.json() berada di dalam try...catch
     try {
         const body = await request.json();
         const { email, password } = body;
 
-        // Validasi cepat: Pastikan field utama ada
         if (!email || !password) {
             return NextResponse.json(
                 { error: 'Email dan password dibutuhkan.' }, 
-                { status: 400 } // Mengembalikan pesan 400 yang lebih jelas
+                { status: 400 } 
             );
         }
 
-        // 1. Cari Pengguna
-        const user = await prisma.user.findUnique({ where: { email } });
+        // 1. Cek di Tabel Karyawan
+        let user: any = await prisma.karyawan.findUnique({ where: { email } });
+        let role = 'EMPLOYEE';
+
+        // 2. Jika tidak ada, Cek di Tabel HRD
+        if (!user) {
+            user = await prisma.hRD.findUnique({ where: { email } });
+            role = 'HRD';
+        }
 
         if (!user) {
             return NextResponse.json(
@@ -28,7 +37,7 @@ export async function POST(request: Request) {
             );
         }
 
-        // 2. Bandingkan Password
+        // 3. Bandingkan Password
         const passwordMatch = await bcrypt.compare(password, user.password);
 
         if (!passwordMatch) {
@@ -38,24 +47,35 @@ export async function POST(request: Request) {
             );
         }
 
-        // 3. Login Berhasil - Kembalikan data atau token
-        // (Anda harus implementasikan logika JWT/Session di sini,
-        //  tapi untuk pengujian fungsionalitas, kita kembalikan data user)
-        const { password: userPassword, ...userData } = user; // Hapus password dari respons
+        // 4. Generate Token (Hanya untuk keperluan API testing/mobile)
+        const token = jwt.sign(
+            { 
+                userId: user.id, 
+                role: role, 
+                departmentId: user.departmentId || null 
+            }, 
+            JWT_SECRET,
+            { expiresIn: '1d' }
+        );
+
+        // Hapus password dari respons
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password: userPassword, ...userData } = user;
 
         return NextResponse.json(
-            { user: userData, message: "Login Berhasil" }, 
+            { 
+                user: { ...userData, role }, 
+                message: "Login Berhasil",
+                accessToken: token 
+            }, 
             { status: 200 }
         );
 
     } catch (error) {
-        // Blok ini menangkap error parsing atau error lain di server
         console.error("Login API Error:", error);
-        
-        // Mengembalikan 400 jika parsing body gagal (ini sering terjadi)
         return NextResponse.json(
-             { error: 'Format permintaan JSON salah atau tidak lengkap.' }, 
-             { status: 400 } 
+             { error: 'Terjadi kesalahan server.' }, 
+             { status: 500 } 
         );
     }
 }

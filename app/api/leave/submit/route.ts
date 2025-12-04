@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
     // Fallback ambil departmentId dari DB jika belum ada
     if (!departmentId) {
-        const userCheck = await prisma.user.findUnique({ where: { id: userId }, select: { departmentId: true }});
+        const userCheck = await prisma.karyawan.findUnique({ where: { id: userId }, select: { departmentId: true }});
         departmentId = userCheck?.departmentId || undefined;
         
         if (!departmentId) {
@@ -66,25 +66,24 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Mohon lengkapi semua field wajib.' }, { status: 400 });
         }
 
-        const user = await prisma.user.findUnique({
+        // PERBAIKAN: Gunakan prisma.karyawan
+        const user = await prisma.karyawan.findUnique({
             where: { id: userId },
             include: { department: true },
         });
 
         if (!user) {
-            return NextResponse.json({ error: 'User tidak ditemukan.' }, { status: 404 });
+            return NextResponse.json({ error: 'Data karyawan tidak ditemukan.' }, { status: 404 });
         }
 
-        // >>> PERBAIKAN UTAMA: CEK BENTROKAN TANGGAL DIRI SENDIRI <<<
-        // Kita cek apakah ada request dengan status PENDING atau APPROVED 
-        // yang tanggalnya beririsan dengan request baru ini.
+        // Cek Bentrokan Tanggal
         const personalOverlap = await prisma.leaveRequest.findFirst({
             where: {
-                employeeId: userId, // Cek milik user ini
-                status: { in: ['PENDING', 'APPROVED'] }, // Abaikan yang REJECTED/CANCELLED
+                employeeId: userId,
+                status: { in: ['PENDING', 'APPROVED'] },
                 AND: [
-                    { startDate: { lte: new Date(endDate) } }, // Start Lama <= End Baru
-                    { endDate: { gte: new Date(startDate) } }, // End Lama >= Start Baru
+                    { startDate: { lte: new Date(endDate) } },
+                    { endDate: { gte: new Date(startDate) } },
                 ],
             },
         });
@@ -95,8 +94,6 @@ export async function POST(request: Request) {
                 { status: 400 }
             );
         }
-        // >>> AKHIR PERBAIKAN <<<
-
 
         // --- Validasi 1: Jatah Cuti (ANNUAL) ---
         if (leaveType === 'ANNUAL' && user.remainingLeave < daysTaken) {

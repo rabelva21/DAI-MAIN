@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
 
-export const dynamic = 'force-dynamic'; // <-- TAMBAHKAN BARIS INI
+export const dynamic = 'force-dynamic';
 
 export async function POST() {
   const session = await auth();
@@ -12,10 +12,8 @@ export async function POST() {
 
   try {
     // Mengatur ulang jatah cuti SEMUA karyawan ke 12
-    const result = await prisma.user.updateMany({
-      where: {
-        role: 'EMPLOYEE',
-      },
+    // PERBAIKAN: Gunakan prisma.karyawan
+    const result = await prisma.karyawan.updateMany({
       data: {
         remainingLeave: 12,
       },
