@@ -3,18 +3,16 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // atau "mysql" sesuaikan dengan provider Anda
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// 1. Model Karyawan (User)
-// Di kode tetap "User", tapi di database jadi tabel "Karyawan"
-model User {
+// 1. Model Karyawan (Pengganti User untuk Staff)
+model Karyawan {
   id             String   @id @default(uuid()) @map("id_karyawan")
   email          String   @unique @map("email")
   fullName       String   @map("nama_lengkap")
   password       String   @map("kata_sandi")
-  role           UserRole @default(EMPLOYEE) @map("peran") // Enum juga bisa dimap jika perlu, tapi column namenya di-indonesiakan
   remainingLeave Int      @default(12) @map("sisa_cuti")
   createdAt      DateTime @default(now()) @map("dibuat_pada")
 
@@ -23,38 +21,49 @@ model User {
   department   Department? @relation(fields: [departmentId], references: [id])
 
   leaveRequests LeaveRequest[]
-  
-  // Relasi untuk approval (sebagai HRD)
-  approvals     LeaveApproval[]
 
-  @@map("Karyawan") // Nama tabel di database
+  // Kita hardcode role di logika aplikasi sebagai 'EMPLOYEE'
+  @@map("Karyawan")
 }
 
-// 2. Model Departemen
+// 2. Model HRD (Tabel Baru Khusus Admin)
+model HRD {
+  id        String   @id @default(uuid()) @map("id_hrd")
+  email     String   @unique @map("email")
+  fullName  String   @map("nama_lengkap")
+  password  String   @map("kata_sandi")
+  
+  // Relasi: HRD yang memberikan persetujuan
+  approvals LeaveApproval[]
+
+  // Kita hardcode role di logika aplikasi sebagai 'HRD'
+  @@map("HRD")
+}
+
+// 3. Model Departemen
 model Department {
   id                 String @id @default(uuid()) @map("id_departemen")
   name               String @unique @map("nama")
   maxConcurrentLeave Int    @default(2) @map("maks_cuti_bersamaan")
 
-  users         User[]
+  karyawans     Karyawan[] // Relasi ke Karyawan
   leaveRequests LeaveRequest[]
 
   @@map("Departemen")
 }
 
-// 3. Model Permintaan Cuti
+// 4. Model Permintaan Cuti
 model LeaveRequest {
   id           String      @id @default(uuid()) @map("id_permintaan_cuti")
   
-  // Relasi Karyawan
+  // Relasi Karyawan (Yang mengajukan)
   employeeId   String      @map("id_karyawan")
-  employee     User        @relation(fields: [employeeId], references: [id])
+  employee     Karyawan    @relation(fields: [employeeId], references: [id])
 
   // Relasi Departemen
   departmentId String?     @map("id_departemen")
   department   Department? @relation(fields: [departmentId], references: [id])
 
-  // Data Cuti
   leaveType    LeaveType   @map("jenis_cuti")
   status       LeaveStatus @default(PENDING) @map("status")
   startDate    DateTime    @map("tanggal_mulai")
@@ -63,39 +72,30 @@ model LeaveRequest {
   daysTaken    Int         @map("durasi_hari")
   proofUrl     String?     @map("url_bukti")
   
-  // Relasi ke Tabel Persetujuan (One-to-One atau One-to-Many tergantung logika, di sini One-to-One agar sesuai ERD)
   approval     LeaveApproval?
 
-  // Timestamp
   createdAt    DateTime    @default(now()) @map("dibuat_pada")
   updatedAt    DateTime    @updatedAt @map("diperbarui_pada")
 
   @@map("Permintaan_Cuti")
 }
 
-// 4. Model Persetujuan Cuti (Tabel Baru)
+// 5. Model Persetujuan Cuti
 model LeaveApproval {
   id                String   @id @default(uuid()) @map("id_persetujuan_cuti")
   
-  // Relasi ke Permintaan Cuti
   leaveRequestId    String   @unique @map("id_permintaan_cuti")
   leaveRequest      LeaveRequest @relation(fields: [leaveRequestId], references: [id])
 
-  // Relasi ke HRD (User dengan role HRD)
+  // Relasi ke HRD (Bukan User lagi)
   hrdId             String   @map("id_hrd")
-  hrd               User     @relation(fields: [hrdId], references: [id])
+  hrd               HRD      @relation(fields: [hrdId], references: [id])
 
   approvalDate      DateTime @default(now()) @map("tanggal_persetujuan")
   finalStatus       LeaveStatus @map("status_final")
   comment           String?  @map("keterangan")
 
   @@map("Persetujuan_Cuti")
-}
-
-// Enum tetap bahasa Inggris di kode untuk konsistensi logika if/else
-enum UserRole {
-  EMPLOYEE
-  HRD
 }
 
 enum LeaveStatus {
@@ -109,4 +109,10 @@ enum LeaveType {
   ANNUAL
   SICK
   MATERNITY
+}
+
+// UserRole hanya untuk keperluan TypeScript di Auth, tidak perlu di DB jika tabel pisah
+enum UserRole {
+  EMPLOYEE
+  HRD
 }

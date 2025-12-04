@@ -1,62 +1,49 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Start seeding...');
+  console.log('Mereset database...');
+  // Hapus data lama (Urutan penting karena relasi)
+  // Gunakan try-catch agar tidak error jika tabel kosong
+  try { await prisma.leaveApproval.deleteMany(); } catch(e) {}
+  try { await prisma.leaveRequest.deleteMany(); } catch(e) {}
+  try { await prisma.karyawan.deleteMany(); } catch(e) {}
+  try { await prisma.hRD.deleteMany(); } catch(e) {}
+  try { await prisma.department.deleteMany(); } catch(e) {}
 
-  await prisma.leaveRequest.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.department.deleteMany();
-  console.log('Deleted old data.');
-
-  await prisma.department.createMany({
-    data: [
-      { name: 'Engineering', maxConcurrentLeave: 2 },
-      { name: 'Marketing', maxConcurrentLeave: 2 },
-      { name: 'Sales', maxConcurrentLeave: 4 },
-      { name: 'Finance', maxConcurrentLeave: 2 },
-      { name: 'Operations', maxConcurrentLeave: 5 },
-      { name: 'Human Resources', maxConcurrentLeave: 2 },
-      { name: 'MIS', maxConcurrentLeave: 2 }
-    ],
-  });
-
-  console.log('Created 6 departments.');
-
-  const hashedPasswordHrd = await bcrypt.hash('password123', 10);
-
-  const userHrd = await prisma.user.create({
+  // 1. Buat Departemen
+  console.log('Membuat Departemen...');
+  const engineering = await prisma.department.create({ data: { name: 'Engineering', maxConcurrentLeave: 2 } });
+  const hrDept = await prisma.department.create({ data: { name: 'Human Resources', maxConcurrentLeave: 2 } });
+  await prisma.department.create({ data: { name: 'Marketing', maxConcurrentLeave: 2 } });
+  
+  // 2. Buat Akun HRD
+  console.log('Membuat Akun HRD...');
+  const passwordHrd = await bcrypt.hash('password123', 10);
+  await prisma.hRD.create({
     data: {
       email: 'hrd@ptdai.com',
-      fullName: 'Hari HRD',
-      password: hashedPasswordHrd,
-      role: UserRole.HRD,
-      remainingLeave: 12,
-      departmentId: null,
+      fullName: 'Hari HRD (Admin)',
+      password: passwordHrd,
     },
   });
 
-  console.log('Created HRD user:');
-  console.log(userHrd);
-
-const hashedPasswordAdmin2 = await bcrypt.hash('password1234', 10); // Gunakan password berbeda
-const userAdmin2 = await prisma.user.create({
+  // 3. Buat Akun Karyawan
+  console.log('Membuat Akun Karyawan...');
+  const passwordKaryawan = await bcrypt.hash('password123', 10);
+  await prisma.karyawan.create({
     data: {
-        email: 'hrd2@ptdai.com', 
-        fullName: 'priska',   
-        password: hashedPasswordAdmin2,
-        role: UserRole.HRD,
-        remainingLeave: 12,
-        departmentId: null,
+      email: 'budi@ptdai.com',
+      fullName: 'Budi Santoso',
+      password: passwordKaryawan,
+      departmentId: engineering.id,
+      remainingLeave: 12,
     },
-});
+  });
 
-console.log('Created second HRD user:');
-console.log(userAdmin2);
-
-  console.log('Seeding finished. ✨');
+  console.log('Seeding selesai! ✨');
 }
 
 main()

@@ -1,143 +1,162 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/auth'; // Pastikan import auth ada
-import jwt from 'jsonwebtoken';
+import { auth } from '@/auth';
+import { LeaveStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'a9bde15fa6d0d2d02e7786783b75352fa6e1cf4cc81813dddb91abf7c0dddeb3'; 
-
-// --- FUNGSI DELETE (Penghapusan Massal - Hybrid Auth) ---
-export async function DELETE(request: Request) {
-    let userRole: string | undefined;
-
-    // 1. Cek Session Browser (Web)
+// --- FUNGSI 1: PATCH (Approve/Reject Cuti) ---
+export async function PATCH(
+    request: Request,
+    props: { params: Promise<{ id: string }> }
+) {
+    const params = await props.params;
+    const requestId = params.id; 
     const session = await auth();
-    if (session && session.user) {
-        userRole = session.user.role;
-    }
 
-    // 2. Jika Session Kosong, Cek Token (Postman)
-    if (!userRole) {
-        const authorizationHeader = request.headers.get('authorization');
-        const token = authorizationHeader?.split(' ')[1]; 
-        
-        if (token) {
-            try {
-                const decoded: any = jwt.verify(token, JWT_SECRET);
-                userRole = decoded.role;
-            } catch (e) {
-                console.error("Token invalid");
-            }
-        }
-    }
-    
-    // 3. Validasi Akhir
-    if (userRole !== 'HRD') {
-        return NextResponse.json({ error: 'Akses ditolak: Bukan HRD atau belum login.' }, { status: 403 });
+    // 1. Validasi Role HRD
+    if (!session?.user || session.user.role !== 'HRD') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     try {
-        // Hapus semua data
-        const result = await prisma.leaveRequest.deleteMany({}); 
-        return NextResponse.json({ 
-            message: `Berhasil menghapus ${result.count} catatan cuti secara permanen.`,
-            count: result.count
-        }, { status: 200 });
+        const body = await request.json();
+        const { newStatus, hrdComment } = body;
+        
+        // 2. Ambil data lama
+        const leaveRequest = await prisma.leaveRequest.findUnique({ 
+            where: { id: requestId } 
+        });
 
-    } catch (error) {
-        console.error("DELETE Admin Leaves Error:", error);
-        return NextResponse.json(
-            { error: 'Gagal menghapus data cuti.' },
-            { status: 500 }
-        );
+        if (!leaveRequest) {
+            return NextResponse.json({ error: 'Request not found' }, { status: 404 });
+        }
+        
+        const oldStatus = leaveRequest.status;
+        const isAnnual = leaveRequest.leaveType === 'ANNUAL';
+        const daysTaken = leaveRequest.daysTaken;
+
+        await prisma.$transaction(async (tx) => {
+            
+            // A. Simpan/Update data persetujuan di tabel LeaveApproval
+            // (Menggantikan kolom hrdComment yang dulu ada di LeaveRequest)
+            await tx.leaveApproval.upsert({
+                where: { leaveRequestId: requestId },
+                create: {
+                    leaveRequestId: requestId,
+                    hrdId: session.user.id, // ID HRD yang login
+                    finalStatus: newStatus as LeaveStatus,
+                    comment: hrdComment,
+                    approvalDate: new Date(),
+                },
+                update: {
+                    hrdId: session.user.id,
+                    finalStatus: newStatus as LeaveStatus,
+                    comment: hrdComment,
+                    approvalDate: new Date(),
+                }
+            });
+
+            // B. Update status di tabel Utama (LeaveRequest)
+            await tx.leaveRequest.update({
+                where: { id: requestId },
+                data: {
+                    status: newStatus as LeaveStatus,
+                    updatedAt: new Date(),
+                },
+            });
+
+            // C. Logic Kuota Cuti (Update ke tabel Karyawan)
+            // PERBAIKAN UTAMA: Menggunakan tx.karyawan bukan tx.user
+            if (isAnnual) {
+                // Jika Disetujui (sebelumnya belum): Kurangi
+                if (newStatus === 'APPROVED' && oldStatus !== 'APPROVED') {
+                    await tx.karyawan.update({
+                        where: { id: leaveRequest.employeeId },
+                        data: { remainingLeave: { decrement: daysTaken } },
+                    });
+                } 
+                // Jika Batal Disetujui (sebelumnya approved): Refund
+                else if (oldStatus === 'APPROVED' && newStatus !== 'APPROVED') {
+                    await tx.karyawan.update({
+                        where: { id: leaveRequest.employeeId },
+                        data: { remainingLeave: { increment: daysTaken } },
+                    });
+                }
+            }
+        });
+
+        return NextResponse.json({ success: true });
+
+    } catch (error: any) {
+        console.error("Update Error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
-// --- FUNGSI GET (Tabel Admin - Hybrid Auth) ---
-export async function GET(request: Request) {
-    let userRole: string | undefined;
-
-    // 1. Cek Session Browser (Web)
+// --- FUNGSI 2: DELETE (Hapus Permanen) ---
+export async function DELETE(
+    request: Request,
+    props: { params: Promise<{ id: string }> } 
+) {
+    const params = await props.params;
+    const requestId = params.id;
     const session = await auth();
-    if (session && session.user) {
-        userRole = session.user.role;
-    }
 
-    // 2. Jika Session Kosong, Cek Token (Postman)
-    if (!userRole) {
-        const authorizationHeader = request.headers.get('authorization');
-        const token = authorizationHeader?.split(' ')[1]; 
-        
-        if (token) {
-            try {
-                const decoded: any = jwt.verify(token, JWT_SECRET);
-                userRole = decoded.role;
-            } catch (e) {
-                console.error("Token invalid");
-            }
-        }
+    if (!session?.user || session.user.role !== 'HRD') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    // 3. Validasi Akhir
-    if (userRole !== 'HRD') {
-        return NextResponse.json({ error: 'Akses ditolak: Bukan HRD atau belum login.' }, { status: 403 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '10', 10);
-    const statusFilter = searchParams.get('status'); 
-    const search = searchParams.get('search');
-    const skip = (page - 1) * limit;
 
     try {
-        const whereClause: any = {};
-        
-        // Filter Status
-        if (statusFilter && statusFilter !== 'all') { 
-            whereClause.status = statusFilter;
-        }
+        await prisma.$transaction(async (tx) => {
+            // A. Cari dulu datanya
+            const leaveRequest = await tx.leaveRequest.findUnique({
+                where: { id: requestId },
+            });
 
-        // Filter Search
-        if (search) {
-            whereClause.OR = [
-                { employee: { fullName: { contains: search, mode: 'insensitive' } } },
-                { department: { name: { contains: search, mode: 'insensitive' } } },
-                { reason: { contains: search, mode: 'insensitive' } },
-            ];
-        }
+            if (!leaveRequest) {
+                throw new Error("P2025"); 
+            }
 
-        const [leaveRequests, totalCount] = await prisma.$transaction([
-            prisma.leaveRequest.findMany({
-                where: whereClause,
-                orderBy: {
-                    createdAt: 'desc',
-                },
-                include: {
-                    employee: { select: { fullName: true, email: true } },
-                    department: { select: { name: true } },
-                    hrdCommentBy: { select: { fullName: true } },
-                },
-                skip: skip,
-                take: limit,
-            }),
-            prisma.leaveRequest.count({
-                where: whereClause,
-            }),
-        ]);
+            // B. Hapus Data Approval Terkait Dulu (PENTING AGAR TIDAK ERROR FOREIGN KEY)
+            await tx.leaveApproval.deleteMany({
+                where: { leaveRequestId: requestId }
+            });
 
-        return NextResponse.json({
-            data: leaveRequests,
-            totalCount: totalCount,
-            page: page,
-            limit: limit
+            // C. Logika Refund Jatah Cuti sebelum hapus 
+            // PERBAIKAN UTAMA: Menggunakan tx.karyawan bukan tx.user
+            if (leaveRequest.status === 'APPROVED' && leaveRequest.leaveType === 'ANNUAL') {
+                const userExists = await tx.karyawan.findUnique({
+                    where: { id: leaveRequest.employeeId }
+                });
+
+                if (userExists) {
+                    await tx.karyawan.update({
+                        where: { id: leaveRequest.employeeId },
+                        data: {
+                            remainingLeave: {
+                                increment: leaveRequest.daysTaken
+                            }
+                        }
+                    });
+                }
+            }
+
+            // D. Hapus Data Cuti Utama
+            await tx.leaveRequest.delete({
+                where: { id: requestId },
+            });
         });
-    } catch (error) {
-        console.error("GET Admin Leaves Error:", error);
-        return NextResponse.json(
-            { error: 'Internal Server Error' },
-            { status: 500 }
-        );
+
+        return NextResponse.json({ message: 'Deleted' }, { status: 200 });
+
+    } catch (error: any) {
+        console.error("Delete Error:", error);
+
+        if (error.message === "P2025" || error.code === 'P2025') {
+            return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
+        }
+
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
