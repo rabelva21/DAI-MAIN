@@ -100,7 +100,7 @@ export async function PATCH(
 }
 
 
-// --- FUNGSI 2: DELETE (Hapus Permanen - Hybrid Auth) ---
+// --- FUNGSI 2: DELETE (Hapus Permanen - Hybrid Auth) - SUDAH DIPERBAIKI ---
 export async function DELETE(
     request: Request,
     props: { params: Promise<{ id: string }> } 
@@ -138,26 +138,36 @@ export async function DELETE(
 
     try {
         await prisma.$transaction(async (tx) => {
+            // A. Cari dulu datanya untuk memastikan record ada
             const leaveRequest = await tx.leaveRequest.findUnique({
                 where: { id: requestIdToDelete },
             });
 
             if (!leaveRequest) {
-                throw new Error("Data cuti tidak ditemukan");
+                // Lempar error khusus agar bisa ditangkap di catch block sebagai 404
+                throw new Error("P2025"); 
             }
 
-            // Logika Refund: Jika yang dihapus statusnya APPROVED & tipe ANNUAL, kembalikan jatah cuti user
+            // B. Logika Refund: Kembalikan jatah cuti HANYA JIKA Usernya masih ada
+            // (Mencegah error foreign key jika user sudah dihapus duluan)
             if (leaveRequest.status === 'APPROVED' && leaveRequest.leaveType === 'ANNUAL') {
-                await tx.user.update({
-                    where: { id: leaveRequest.employeeId },
-                    data: {
-                        remainingLeave: {
-                            increment: leaveRequest.daysTaken
-                        }
-                    }
+                const userExists = await tx.user.findUnique({
+                    where: { id: leaveRequest.employeeId }
                 });
+
+                if (userExists) {
+                    await tx.user.update({
+                        where: { id: leaveRequest.employeeId },
+                        data: {
+                            remainingLeave: {
+                                increment: leaveRequest.daysTaken
+                            }
+                        }
+                    });
+                }
             }
 
+            // C. Hapus Data Cuti
             await tx.leaveRequest.delete({
                 where: { id: requestIdToDelete },
             });
@@ -168,10 +178,15 @@ export async function DELETE(
     } catch (error: any) {
         console.error("Delete Error:", error);
 
-        if (error.message === "Data cuti tidak ditemukan") {
-            return NextResponse.json({ error: 'Data tidak ditemukan.' }, { status: 404 });
+        // Menangani Error Prisma "Record Not Found" (P2025)
+        if (error.message === "P2025" || error.code === 'P2025') {
+            return NextResponse.json({ error: 'Data cuti tidak ditemukan (mungkin ID salah atau sudah dihapus).' }, { status: 404 });
         }
 
-        return NextResponse.json({ error: 'Gagal menghapus catatan cuti.' }, { status: 500 });
+        // Tampilkan detail error agar bisa didebug di Postman
+        return NextResponse.json({ 
+            error: 'Gagal menghapus data.', 
+            details: error.message 
+        }, { status: 500 });
     }
 }
