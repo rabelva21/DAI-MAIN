@@ -25,8 +25,8 @@ export const authConfig = {
                 id: karyawan.id,
                 email: karyawan.email,
                 name: karyawan.fullName,
-                fullName: karyawan.fullName, // Field tambahan untuk session
-                role: 'EMPLOYEE',            // Hardcode role
+                fullName: karyawan.fullName,
+                role: 'EMPLOYEE',
                 remainingLeave: karyawan.remainingLeave,
                 departmentId: karyawan.departmentId,
               };
@@ -34,7 +34,6 @@ export const authConfig = {
           }
 
           // 2. Cek Login sebagai HRD
-          // Pastikan model di prisma/schema.prisma bernama "HRD" (huruf besar/kecil harus sama)
           const hrd = await prisma.hRD.findUnique({ where: { email } });
           if (hrd) {
             const match = await bcrypt.compare(password, hrd.password);
@@ -44,7 +43,7 @@ export const authConfig = {
                 email: hrd.email,
                 name: hrd.fullName,
                 fullName: hrd.fullName,
-                role: 'HRD',                 // Hardcode role
+                role: 'HRD',
                 remainingLeave: 0,
                 departmentId: null,
               };

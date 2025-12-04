@@ -1,8 +1,8 @@
 import NextAuth from 'next-auth';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import prisma from '@/lib/prisma';
+// Hapus import PrismaAdapter karena tidak dipakai lagi untuk tabel custom
+// import { PrismaAdapter } from '@auth/prisma-adapter'; 
+// import prisma from '@/lib/prisma';
 import { authConfig } from './auth.config';
-import type { Adapter } from 'next-auth/adapters';
 
 export const {
   handlers: { GET, POST },
@@ -11,7 +11,7 @@ export const {
   signOut,
 } = NextAuth({
   ...authConfig,
-  adapter: PrismaAdapter(prisma) as Adapter,
+  // adapter: PrismaAdapter(prisma) as Adapter, <--- HAPUS BARIS INI
   session: { strategy: 'jwt' },
   callbacks: {
     async jwt({ token, user }) {
@@ -26,7 +26,6 @@ export const {
     },
     async session({ session, token }) {
       if (token && session.user) {
-        // Cek apakah token.id ada sebelum assign
         if (token.id) {
           session.user.id = token.id as string;
         }
@@ -39,7 +38,6 @@ export const {
           session.user.remainingLeave = token.remainingLeave;
         }
         
-        // departmentId bisa null, jadi ini aman
         session.user.departmentId = (token.departmentId as string | null) ?? null;
       }
       return session;
