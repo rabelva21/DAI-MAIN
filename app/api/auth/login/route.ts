@@ -1,13 +1,9 @@
-// app/api/auth/login/route.ts
-
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken'; 
 
-// Pastikan kunci ini ada di .env Anda
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-ganti-ini'; 
-
+const JWT_SECRET = process.env.JWT_SECRET || 'a9bde15fa6d0d2d02e7786783b75352fa6e1cf4cc81813dddb91abf7c0dddeb3'; 
 
 export async function POST(request: Request) {
     try {
@@ -22,22 +18,34 @@ export async function POST(request: Request) {
             );
         }
 
-        // [2] Cari Pengguna
-        // Tambahkan include departmentId untuk memastikan data dimuat, meskipun sebenarnya sudah ada di model User
-        const user = await prisma.user.findUnique({ 
-             where: { email },
-             select: {
-                 id: true,
-                 email: true,
-                 fullName: true,
-                 password: true,
-                 role: true,
-                 remainingLeave: true,
-                 departmentId: true, // Ambil departmentId di sini
-                 createdAt: true,
-             }
+        // [2] Cari Pengguna (Cek Karyawan dulu, lalu HRD)
+        let user: any = null;
+        let role = '';
+        let departmentId: string | null = null;
+
+        // Cek di tabel Karyawan
+        const karyawan = await prisma.karyawan.findUnique({ 
+             where: { email }
         });
 
+        if (karyawan) {
+            user = karyawan;
+            role = 'EMPLOYEE';
+            departmentId = karyawan.departmentId;
+        } else {
+            // Jika tidak ada di Karyawan, cek di tabel HRD
+            const hrd = await prisma.hRD.findUnique({ 
+                where: { email }
+           });
+           
+           if (hrd) {
+               user = hrd;
+               role = 'HRD';
+               departmentId = null; // HRD tidak terikat departemen spesifik di skema ini
+           }
+        }
+
+        // Jika user tidak ditemukan di kedua tabel
         if (!user) {
             return NextResponse.json(
                 { error: 'Kredensial tidak valid.' }, 
@@ -55,28 +63,27 @@ export async function POST(request: Request) {
             );
         }
 
-        // [4] BUAT TOKEN JWT (Login Sukses)
+        // [4] BUAT TOKEN JWT
         const token = jwt.sign(
             { 
                 userId: user.id, 
-                role: user.role, 
-                // Menggunakan ID yang sudah diambil dari user.departmentId
-                departmentId: user.departmentId
+                role: role, 
+                departmentId: departmentId
             }, 
             JWT_SECRET, 
-            { expiresIn: '1d' } // Masa berlaku token 1 hari
+            { expiresIn: '1d' }
         );
         
-        // Hapus password dari respons sebelum dikirim
+        // Hapus password dari respons
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { password: userPassword, ...userData } = user;
 
         // [5] Kembalikan Token dan Data User
         return NextResponse.json(
             { 
-                user: userData, 
+                user: { ...userData, role }, // Sertakan role di response user
                 message: "Login Berhasil",
-                accessToken: token // TOKEN YANG AKAN ANDA SALIN DI POSTMAN
+                accessToken: token 
             }, 
             { status: 200 }
         );
