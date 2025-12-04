@@ -141,16 +141,25 @@ export function RegisterForm() {
             <FormField control={form.control} name="departmentId" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-black">Departemen</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading || !departments}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
                     <FormControl>
                       <SelectTrigger className="border-gray-300">
                         <SelectValue placeholder="Pilih departemen Anda" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {departments?.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                      ))}
+                      {/* PERBAIKAN DISINI: Cek apakah departments adalah Array sebelum mapping */}
+                      {Array.isArray(departments) ? (
+                        departments.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="error" disabled>
+                          {deptError ? "Gagal memuat data" : "Memuat..."}
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />

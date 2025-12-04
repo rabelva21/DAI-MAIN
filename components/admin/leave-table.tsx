@@ -16,7 +16,6 @@ import type { LeaveRequest } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 
-// PERBAIKAN: Type hrdComment ditambahkan
 type LeaveRequestWithDetails = LeaveRequest & {
     employee: { fullName: string; email: string; remainingLeave: number };
     department: { name: string } | null;
@@ -84,8 +83,10 @@ export function LeaveTable() {
 
     useEffect(() => { setCurrentPage(1); }, [statusFilter, searchQuery]);
 
+    // --- PERBAIKAN UTAMA DI SINI ---
+    // Mengubah endpoint dari /api/admin/leaves menjadi /api/leave/admin-list
     const { data: apiResponse, error, mutate, isLoading } = useSWR<ApiResponse>(
-        `/api/admin/leaves?status=${statusFilter}&search=${searchQuery}&page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
+        `/api/leave/admin-list?status=${statusFilter}&search=${searchQuery}&page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
         fetcher
     );
 

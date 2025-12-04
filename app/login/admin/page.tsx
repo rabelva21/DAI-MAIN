@@ -1,11 +1,8 @@
 import { LoginForm } from '@/components/auth/login-form';
 import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
-import { Suspense } from 'react'; // <-- 1. Impor Suspense
+import { Suspense } from 'react';
 
-// Buat komponen skeleton sederhana untuk fallback
+// Buat komponen skeleton sederhana untuk fallback saat loading
 function LoginFormSkeleton() {
   return (
     <div className="border-gray-200 rounded-lg border shadow-sm p-6 space-y-4">
@@ -29,7 +26,8 @@ export default function AdminLoginPage() {
             alt="PT. DAI Logo"
             width={80}
             height={80}
-            className="shrink-0"
+            // PERBAIKAN: Gunakan 'w-20 h-auto' untuk menjaga aspect ratio
+            className="shrink-0 w-20 h-auto"
             priority
           />
           <div>
@@ -38,11 +36,10 @@ export default function AdminLoginPage() {
           </div>
         </div>
 
-        {/* --- 2. Bungkus LoginForm dengan Suspense --- */}
+        {/* Suspense digunakan untuk menangani komponen client yang mungkin menggunakan useSearchParams */}
         <Suspense fallback={<LoginFormSkeleton />}>
           <LoginForm role="HRD" />
         </Suspense>
-        {/* ------------------------------------------- */}
 
         <p className="mt-6 text-center text-xs text-gray-500">
           Akun admin tidak dapat dibuat secara publik.
