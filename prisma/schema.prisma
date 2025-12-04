@@ -7,93 +7,69 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. Model Karyawan (Pengganti User untuk Staff)
 model Karyawan {
-  id             String   @id @default(uuid()) @map("id_karyawan")
-  email          String   @unique @map("email")
-  fullName       String   @map("nama_lengkap")
-  password       String   @map("kata_sandi")
-  remainingLeave Int      @default(12) @map("sisa_cuti")
-  createdAt      DateTime @default(now()) @map("dibuat_pada")
+  id             String         @id @default(uuid())
+  email          String         @unique
+  fullName       String
+  password       String
+  remainingLeave Int            @default(12)
+  createdAt      DateTime       @default(now())
+  departmentId   String?
+  department     Department?    @relation(fields: [departmentId], references: [id])
+  leaveRequests  LeaveRequest[]
 
-  // Relasi
-  departmentId String?     @map("id_departemen")
-  department   Department? @relation(fields: [departmentId], references: [id])
-
-  leaveRequests LeaveRequest[]
-
-  // Kita hardcode role di logika aplikasi sebagai 'EMPLOYEE'
   @@map("Karyawan")
 }
 
-// 2. Model HRD (Tabel Baru Khusus Admin)
 model HRD {
-  id        String   @id @default(uuid()) @map("id_hrd")
-  email     String   @unique @map("email")
-  fullName  String   @map("nama_lengkap")
-  password  String   @map("kata_sandi")
-  
-  // Relasi: HRD yang memberikan persetujuan
+  id        String          @id @default(uuid())
+  email     String          @unique
+  fullName  String
+  password  String
   approvals LeaveApproval[]
 
-  // Kita hardcode role di logika aplikasi sebagai 'HRD'
   @@map("HRD")
 }
 
-// 3. Model Departemen
 model Department {
-  id                 String @id @default(uuid()) @map("id_departemen")
-  name               String @unique @map("nama")
-  maxConcurrentLeave Int    @default(2) @map("maks_cuti_bersamaan")
-
-  karyawans     Karyawan[] // Relasi ke Karyawan
-  leaveRequests LeaveRequest[]
+  id                 String         @id @default(uuid())
+  name               String         @unique
+  maxConcurrentLeave Int            @default(2)
+  karyawans          Karyawan[]
+  leaveRequests      LeaveRequest[]
 
   @@map("Departemen")
 }
 
-// 4. Model Permintaan Cuti
 model LeaveRequest {
-  id           String      @id @default(uuid()) @map("id_permintaan_cuti")
-  
-  // Relasi Karyawan (Yang mengajukan)
-  employeeId   String      @map("id_karyawan")
-  employee     Karyawan    @relation(fields: [employeeId], references: [id])
-
-  // Relasi Departemen
-  departmentId String?     @map("id_departemen")
-  department   Department? @relation(fields: [departmentId], references: [id])
-
-  leaveType    LeaveType   @map("jenis_cuti")
-  status       LeaveStatus @default(PENDING) @map("status")
-  startDate    DateTime    @map("tanggal_mulai")
-  endDate      DateTime    @map("tanggal_akhir")
-  reason       String      @map("alasan")
-  daysTaken    Int         @map("durasi_hari")
-  proofUrl     String?     @map("url_bukti")
-  
+  id           String         @id @default(uuid())
+  employeeId   String
+  employee     Karyawan       @relation(fields: [employeeId], references: [id])
+  departmentId String?
+  department   Department?    @relation(fields: [departmentId], references: [id])
+  leaveType    LeaveType
+  status       LeaveStatus    @default(PENDING)
+  startDate    DateTime
+  endDate      DateTime
+  reason       String
+  daysTaken    Int
+  proofUrl     String?
   approval     LeaveApproval?
-
-  createdAt    DateTime    @default(now()) @map("dibuat_pada")
-  updatedAt    DateTime    @updatedAt @map("diperbarui_pada")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   @@map("Permintaan_Cuti")
 }
 
-// 5. Model Persetujuan Cuti
 model LeaveApproval {
-  id                String   @id @default(uuid()) @map("id_persetujuan_cuti")
-  
-  leaveRequestId    String   @unique @map("id_permintaan_cuti")
-  leaveRequest      LeaveRequest @relation(fields: [leaveRequestId], references: [id])
-
-  // Relasi ke HRD (Bukan User lagi)
-  hrdId             String   @map("id_hrd")
-  hrd               HRD      @relation(fields: [hrdId], references: [id])
-
-  approvalDate      DateTime @default(now()) @map("tanggal_persetujuan")
-  finalStatus       LeaveStatus @map("status_final")
-  comment           String?  @map("keterangan")
+  id             String       @id @default(uuid())
+  leaveRequestId String       @unique
+  leaveRequest   LeaveRequest @relation(fields: [leaveRequestId], references: [id])
+  hrdId          String
+  hrd            HRD          @relation(fields: [hrdId], references: [id])
+  approvalDate   DateTime     @default(now())
+  finalStatus    LeaveStatus
+  comment        String?
 
   @@map("Persetujuan_Cuti")
 }
@@ -109,10 +85,4 @@ enum LeaveType {
   ANNUAL
   SICK
   MATERNITY
-}
-
-// UserRole hanya untuk keperluan TypeScript di Auth, tidak perlu di DB jika tabel pisah
-enum UserRole {
-  EMPLOYEE
-  HRD
 }

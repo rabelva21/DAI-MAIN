@@ -7,9 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const session = await auth();
-  
-  // Cek jika user bukan HRD (role 'HRD' di tabel HRD)
-  // Perhatikan: Karena kita pisah tabel, session.user.role diisi manual di auth.config.ts
+
   if (!session?.user || session.user.role !== 'HRD') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -34,11 +32,10 @@ export async function GET(request: Request) {
       whereClause.status = statusFilter;
     }
 
-    const [leaveRequests, totalCount] = await prisma.$transaction([
+    const [rawRequests, totalCount] = await prisma.$transaction([
       prisma.leaveRequest.findMany({
         where: whereClause,
         include: {
-          // Relasi ke Karyawan
           employee: {
             select: {
               fullName: true,
@@ -46,14 +43,13 @@ export async function GET(request: Request) {
               remainingLeave: true,
             },
           },
-          // Relasi ke Departemen
           department: {
             select: { name: true },
           },
-          // Relasi ke Approval (Pengganti hrdCommentBy)
+          // PERBAIKAN: Relasi ke Approval -> HRD
           approval: {
             include: {
-              hrd: { // Ambil nama HRD dari tabel HRD
+              hrd: {
                 select: { fullName: true }
               }
             }
@@ -70,8 +66,8 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    // Format ulang data agar sesuai dengan frontend yang mengharapkan 'hrdCommentBy'
-    const formattedData = leaveRequests.map(req => ({
+    // Format data untuk frontend
+    const formattedData = rawRequests.map(req => ({
         ...req,
         hrdComment: req.approval?.comment || null,
         hrdCommentBy: req.approval?.hrd ? { fullName: req.approval.hrd.fullName } : null
