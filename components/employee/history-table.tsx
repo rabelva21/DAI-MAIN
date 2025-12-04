@@ -36,7 +36,6 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
 } from '@/components/ui/card';
 import {
@@ -61,10 +60,12 @@ import { useState } from 'react';
 import { Skeleton } from '../ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 
-// Tipe data
+// PERBAIKAN: Definisikan type secara manual agar hrdComment dikenali
 type LeaveRequestWithDetails = LeaveRequest & {
   hrdCommentBy: { fullName: string } | null;
+  hrdComment?: string | null; // <--- PERBAIKAN DI SINI
 };
+
 type ApiResponse = {
   data: LeaveRequestWithDetails[];
   totalCount: number;
@@ -91,7 +92,6 @@ export function HistoryTable() {
     useState<LeaveRequestWithDetails | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  // Menggunakan endpoint /history yang sudah diperbaiki (Hybrid Auth)
   const {
     data: apiResponse,
     error,
@@ -208,7 +208,6 @@ export function HistoryTable() {
                     <TableCell className="text-gray-700 font-medium">
                       <div className="flex items-center gap-2">
                         {leaveTypeLabels[request.leaveType]}
-                        {/* --- PERBAIKAN 1: BUKTI BISA DIKLIK LANGSUNG --- */}
                         {request.proofUrl && (
                           <Tooltip delayDuration={100}>
                             <TooltipTrigger asChild>
@@ -217,7 +216,7 @@ export function HistoryTable() {
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center justify-center rounded-full p-1 hover:bg-gray-200 transition-colors"
-                                onClick={(e) => e.stopPropagation()} // Mencegah klik baris tabel
+                                onClick={(e) => e.stopPropagation()} 
                               >
                                 <Paperclip className="h-4 w-4 text-blue-600" />
                               </a>
@@ -227,7 +226,6 @@ export function HistoryTable() {
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        {/* --------------------------------------------- */}
                       </div>
                     </TableCell>
                     <TableCell className="text-gray-600 text-sm">
@@ -435,7 +433,7 @@ export function HistoryTable() {
           </div>
         )}
 
-        {/* --- PERBAIKAN 2: DIALOG DETAIL YANG LEBIH RAPI & CANTIK --- */}
+        {/* --- DIALOG DETAIL --- */}
         <Dialog
           open={isDetailOpen}
           onOpenChange={(open) => {
