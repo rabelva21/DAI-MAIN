@@ -54,16 +54,17 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { LeaveRequest, LeaveStatus, LeaveType } from '@prisma/client';
+import type { LeaveRequest } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { Skeleton } from '../ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import { LEAVE_TYPE_LABELS, STATUS_LABELS, STATUS_BADGE_COLORS, LeaveType, LeaveStatus } from '@/lib/utils';
 
-// PERBAIKAN: Definisikan type secara manual agar hrdComment dikenali
+// FIX: Menambahkan hrdComment secara eksplisit
 type LeaveRequestWithDetails = LeaveRequest & {
   hrdCommentBy: { fullName: string } | null;
-  hrdComment?: string | null; // <--- PERBAIKAN DI SINI
+  hrdComment?: string | null;
 };
 
 type ApiResponse = {
@@ -71,17 +72,7 @@ type ApiResponse = {
   totalCount: number;
 };
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
-const leaveTypeLabels: Record<LeaveType, string> = {
-  ANNUAL: 'Cuti Tahunan',
-  SICK: 'Cuti Sakit',
-  MATERNITY: 'Cuti Melahirkan',
-};
-const statusLabels: Record<LeaveStatus, string> = {
-  PENDING: 'Menunggu',
-  APPROVED: 'Disetujui',
-  REJECTED: 'Ditolak',
-  CANCELLED: 'Dibatalkan',
-};
+
 const ITEMS_PER_PAGE = 5;
 
 export function HistoryTable() {
@@ -107,15 +98,9 @@ export function HistoryTable() {
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   const getStatusBadge = (status: LeaveStatus) => {
-    const styles = {
-      PENDING: 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200',
-      APPROVED: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200',
-      REJECTED: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
-      CANCELLED: 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200',
-    };
     return (
-      <Badge variant="outline" className={`${styles[status]} px-3 py-1`}>
-        {statusLabels[status]}
+      <Badge variant="outline" className={`${STATUS_BADGE_COLORS[status]} px-3 py-1`}>
+        {STATUS_LABELS[status]}
       </Badge>
     );
   };
@@ -207,7 +192,7 @@ export function HistoryTable() {
                   <TableRow key={request.id} className="hover:bg-gray-50 transition-colors">
                     <TableCell className="text-gray-700 font-medium">
                       <div className="flex items-center gap-2">
-                        {leaveTypeLabels[request.leaveType]}
+                        {LEAVE_TYPE_LABELS[request.leaveType as LeaveType]}
                         {request.proofUrl && (
                           <Tooltip delayDuration={100}>
                             <TooltipTrigger asChild>
@@ -239,7 +224,7 @@ export function HistoryTable() {
                       <Badge variant="secondary">{request.daysTaken} hari</Badge>
                     </TableCell>
                     <TableCell>
-                        {getStatusBadge(request.status)}
+                        {getStatusBadge(request.status as LeaveStatus)}
                     </TableCell>
                     <TableCell className="max-w-[200px] text-gray-600 text-sm truncate" title={request.hrdComment || ''}>
                       {request.hrdComment || '-'}
@@ -319,13 +304,13 @@ export function HistoryTable() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-semibold text-black flex items-center gap-2">
-                      {leaveTypeLabels[request.leaveType]}
+                      {LEAVE_TYPE_LABELS[request.leaveType as LeaveType]}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       {format(new Date(request.startDate), 'dd MMM yyyy', { locale: idLocale })} - {format(new Date(request.endDate), 'dd MMM yyyy', { locale: idLocale })}
                     </p>
                   </div>
-                  {getStatusBadge(request.status)}
+                  {getStatusBadge(request.status as LeaveStatus)}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -371,7 +356,6 @@ export function HistoryTable() {
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
-                       {/* Mobile Alert Dialog Content same as desktop */}
                        <AlertDialogHeader>
                         <AlertDialogTitle>Batalkan Pengajuan?</AlertDialogTitle>
                         <AlertDialogDescription>
@@ -458,14 +442,14 @@ export function HistoryTable() {
                 {/* Status Section */}
                 <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
                   <span className="text-sm font-medium text-gray-500">Status Saat Ini</span>
-                  {getStatusBadge(selectedRequest.status)}
+                  {getStatusBadge(selectedRequest.status as LeaveStatus)}
                 </div>
 
                 {/* Main Info Grid */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label className="text-xs text-gray-500 uppercase tracking-wide">Jenis Cuti</Label>
-                    <p className="font-medium text-gray-900">{leaveTypeLabels[selectedRequest.leaveType]}</p>
+                    <p className="font-medium text-gray-900">{LEAVE_TYPE_LABELS[selectedRequest.leaveType as LeaveType]}</p>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">

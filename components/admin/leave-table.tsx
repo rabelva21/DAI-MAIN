@@ -39,16 +39,17 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { LeaveRequest, LeaveStatus, LeaveType } from '@prisma/client';
+import type { LeaveRequest } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
+import { LEAVE_TYPE_LABELS, STATUS_LABELS, STATUS_BADGE_COLORS, LeaveType, LeaveStatus } from '@/lib/utils';
 
-// PERBAIKAN: Tambahkan hrdComment?: string | null; ke dalam tipe data
+// FIX: Menambahkan hrdComment secara eksplisit
 type LeaveRequestWithDetails = LeaveRequest & {
     employee: { fullName: string; email: string; remainingLeave: number };
     department: { name: string } | null;
     hrdCommentBy: { fullName: string } | null;
-    hrdComment?: string | null; // <--- INI YANG KURANG DI FILE SEBELUMNYA
+    hrdComment?: string | null;
 };
 
 type ApiResponse = {
@@ -56,19 +57,6 @@ type ApiResponse = {
     totalCount: number;
     page: number;
     limit: number;
-};
-
-const leaveTypeLabels: Record<LeaveType, string> = {
-    ANNUAL: 'Cuti Tahunan',
-    SICK: 'Cuti Sakit',
-    MATERNITY: 'Cuti Melahirkan',
-};
-
-const statusLabels: Record<LeaveStatus, string> = {
-    PENDING: 'Menunggu',
-    APPROVED: 'Disetujui',
-    REJECTED: 'Ditolak',
-    CANCELLED: 'Dibatalkan',
 };
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -111,8 +99,8 @@ export function LeaveTable() {
     const [isReviewLoading, setIsReviewLoading] = useState(false);
     const [reviewAction, setReviewAction] = useState<'APPROVED' | 'REJECTED' | null>(null);
     const [reviewNotes, setReviewNotes] = useState('');
-    const [searchQuery] = useState('');
-    const [statusFilter] = useState<LeaveStatus | 'all'>('all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState<LeaveStatus | 'all'>('all');
     const [currentPage, setCurrentPage] = useState(1);
 
     // Reset page jika filter berubah
@@ -143,7 +131,6 @@ export function LeaveTable() {
     ) => {
         setSelectedRequest(request);
         setReviewAction(action);
-        // Typescript sekarang tidak akan error karena hrdComment sudah ada di type definition
         setReviewNotes(request.hrdComment || ''); 
         setIsReviewOpen(true);
     };
@@ -199,15 +186,9 @@ export function LeaveTable() {
     };
 
     const getStatusBadge = (status: LeaveStatus) => {
-        const styles = {
-            PENDING: 'bg-gray-100 text-gray-800 border-gray-300',
-            APPROVED: 'bg-green-50 text-green-700 border-green-200',
-            REJECTED: 'bg-red-50 text-red-700 border-red-200',
-            CANCELLED: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-        };
         return (
-            <Badge variant="outline" className={`shrink-0 ${styles[status]}`}>
-                {statusLabels[status]}
+            <Badge variant="outline" className={`shrink-0 ${STATUS_BADGE_COLORS[status]}`}>
+                {STATUS_LABELS[status]}
             </Badge>
         );
     };
@@ -248,7 +229,7 @@ export function LeaveTable() {
                             </TableCell>
                             <TableCell className="text-gray-700">
                               <div className="flex items-center gap-2">
-                                {leaveTypeLabels[request.leaveType]}
+                                {LEAVE_TYPE_LABELS[request.leaveType as LeaveType]}
                                 {request.proofUrl && (
                                   <Tooltip>
                                     <TooltipTrigger><Paperclip className="h-3 w-3 text-blue-500" /></TooltipTrigger>
@@ -261,7 +242,7 @@ export function LeaveTable() {
                               {formatDate(request.startDate)} - {formatDate(request.endDate)}
                             </TableCell>
                             <TableCell className="text-gray-700">{request.daysTaken} hari</TableCell>
-                            <TableCell>{getStatusBadge(request.status)}</TableCell>
+                            <TableCell>{getStatusBadge(request.status as LeaveStatus)}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <Button size="sm" variant="outline" onClick={() => handleViewDetail(request)}><Eye className="h-4 w-4" /></Button>

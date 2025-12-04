@@ -25,13 +25,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertCircle } from 'lucide-react';
-import { Department } from '@prisma/client';
+import { AlertCircle, ArrowLeft } from 'lucide-react';
+// PERBAIKAN: Gunakan 'import type' agar tidak crash di browser
+import type { Department } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
 
-// Skema validasi untuk registrasi
 const registerSchema = z
   .object({
     fullName: z.string().min(3, 'Nama lengkap minimal 3 karakter'),
@@ -42,7 +41,7 @@ const registerSchema = z
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Password tidak cocok',
-    path: ['confirmPassword'], // Menampilkan error di field confirmPassword
+    path: ['confirmPassword'],
   });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -54,7 +53,6 @@ export function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Ambil data departemen untuk dropdown
   const { data: departments, error: deptError } = useSWR<Department[]>(
     '/api/departments',
     fetcher
@@ -90,7 +88,6 @@ export function RegisterForm() {
         throw new Error(result.error || 'Gagal mendaftar');
       }
 
-      // Sukses
       toast({
         title: 'Registrasi Berhasil!',
         description: 'Silakan login dengan akun baru Anda.',
@@ -105,7 +102,6 @@ export function RegisterForm() {
   return (
     <Card className="border-gray-200">
       <CardHeader>
-         {/* --- TOMBOL KEMBALI --- */}
          <div className="w-full">
           <Button
             asChild

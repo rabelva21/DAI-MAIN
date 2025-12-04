@@ -1,12 +1,17 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { LeaveStatus, LeaveType } from '@prisma/client'; // Ini akan berfungsi setelah 'prisma generate'
+
+// --- JANGAN IMPORT @prisma/client DI SINI ---
+// Kita definisikan tipe manual agar aman di browser
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Menambahkan helper untuk labels (pengganti dummy-data)
+// Definisi manual untuk Client Side
+export type LeaveType = 'ANNUAL' | 'SICK' | 'MATERNITY';
+export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
 export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
   ANNUAL: 'Cuti Tahunan',
   SICK: 'Cuti Sakit',

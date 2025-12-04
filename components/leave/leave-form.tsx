@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, isSameDay, isWithinInterval } from 'date-fns';
+import { format, isWithinInterval } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import {
   Calendar as CalendarIcon,
@@ -36,10 +36,14 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
-import { Department, LeaveType } from '@prisma/client';
+// PERBAIKAN: Gunakan import type
+import type { Department } from '@prisma/client';
 import useSWR from 'swr';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Skeleton } from '../ui/skeleton';
+
+// Definisi manual untuk menghindari import server
+type LeaveType = 'ANNUAL' | 'SICK' | 'MATERNITY';
 
 const leaveTypeLabels: Record<LeaveType, string> = {
   ANNUAL: 'Cuti Tahunan',
@@ -49,7 +53,6 @@ const leaveTypeLabels: Record<LeaveType, string> = {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-// Komponen Skeleton (Loading)
 function LeaveFormSkeleton() {
   return (
     <Card className="border-gray-200">
@@ -78,16 +81,13 @@ export function LeaveForm() {
   const [isUploading, setIsUploading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  // --- STATE UNTUK TANGGAL YANG SUDAH DIBOOKING ---
   const [bookedRanges, setBookedRanges] = useState<{ from: Date; to: Date }[]>([]);
 
-  // Cloudinary Config
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
 
   const { data: departments, error: deptError, isLoading: deptIsLoading } = useSWR<Department[]>('/api/departments', fetcher);
   
-  // Ambil data tanggal booked dari API baru
   const { data: bookedData } = useSWR('/api/leave/booked-dates', fetcher);
 
   useEffect(() => {
@@ -143,14 +143,11 @@ export function LeaveForm() {
 
   const daysTaken = calculateDays();
 
-  // Helper untuk mengecek apakah tanggal tertentu disabled (Booked)
   const isDateDisabled = (date: Date) => {
-    // 1. Cek apakah tanggal di masa lalu
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     if (date < yesterday) return true;
 
-    // 2. Cek apakah tanggal ada di bookedRanges
     return bookedRanges.some((range) => 
       isWithinInterval(date, { start: range.from, end: range.to })
     );
@@ -160,7 +157,6 @@ export function LeaveForm() {
     e.preventDefault();
     setApiError(null);
 
-    // Validasi Tanggal Manual (Double Check)
     if (formData.startDate && isDateDisabled(formData.startDate)) {
        setApiError("Tanggal Mulai yang dipilih sudah Anda ambil sebelumnya.");
        return;
@@ -258,7 +254,6 @@ export function LeaveForm() {
         description: 'Permohonan cuti Anda telah dikirim dan menunggu persetujuan.',
       });
 
-      // Reset form
       setFormData({
         leaveType: '',
         startDate: undefined,
@@ -268,9 +263,6 @@ export function LeaveForm() {
       });
       const fileInput = document.getElementById('proof') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
-      
-      // Refresh booked dates agar langsung update merahnya
-      // (Optional: Bisa pakai mutate SWR, tapi reload simple juga oke jika user navigasi)
       
     } catch (error: any) {
       setApiError(error.message);
@@ -395,7 +387,6 @@ export function LeaveForm() {
                     selected={formData.startDate}
                     onSelect={(date) => setFormData({ ...formData, startDate: date })}
                     disabled={isDateDisabled}
-                    // Mengatur style untuk tanggal yang sudah dibooking (disabled)
                     modifiers={{ booked: bookedRanges }}
                     modifiersClassNames={{
                         booked: "bg-red-100 text-red-600 font-bold decoration-red-500 line-through opacity-100" 
