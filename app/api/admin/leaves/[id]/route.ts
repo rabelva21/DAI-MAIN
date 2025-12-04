@@ -60,18 +60,37 @@ export async function PATCH(
         const daysTaken = leaveRequest.daysTaken;
 
         await prisma.$transaction(async (tx) => {
-            // Update status
+            
+            // A. Simpan/Update data persetujuan di tabel BARU (LeaveApproval)
+            // Ini perbaikan utamanya: hrdComment tidak lagi di LeaveRequest
+            await tx.leaveApproval.upsert({
+                where: { leaveRequestId: requestId },
+                create: {
+                    leaveRequestId: requestId,
+                    hrdId: hrdUserId as string,
+                    finalStatus: newStatus as LeaveStatus,
+                    comment: hrdComment,
+                    approvalDate: new Date(),
+                },
+                update: {
+                    hrdId: hrdUserId as string,
+                    finalStatus: newStatus as LeaveStatus,
+                    comment: hrdComment,
+                    approvalDate: new Date(),
+                }
+            });
+
+            // B. Update status di tabel Utama (LeaveRequest)
             await tx.leaveRequest.update({
                 where: { id: requestId },
                 data: {
                     status: newStatus as LeaveStatus,
-                    hrdComment: hrdComment,
-                    hrdCommentById: hrdUserId, 
+                    // hrdComment dan hrdCommentById DIHAPUS dari sini karena sudah pindah tabel
                     updatedAt: new Date(),
                 },
             });
 
-            // Logic Kurangi Jatah (Jika Disetujui)
+            // C. Logic Kurangi Jatah (Jika Disetujui)
             if (newStatus === 'APPROVED' && oldStatus !== 'APPROVED' && isAnnual) {
                 await tx.user.update({
                     where: { id: leaveRequest.employeeId },
@@ -79,7 +98,7 @@ export async function PATCH(
                 });
             }
 
-            // Logic Kembalikan Jatah (Jika Batal Disetujui)
+            // D. Logic Kembalikan Jatah (Jika Batal Disetujui)
             if (oldStatus === 'APPROVED' && newStatus !== 'APPROVED' && isAnnual) {
                 await tx.user.update({
                     where: { id: leaveRequest.employeeId },
@@ -100,7 +119,7 @@ export async function PATCH(
 }
 
 
-// --- FUNGSI 2: DELETE (Hapus Permanen - Hybrid Auth) - SUDAH DIPERBAIKI ---
+// --- FUNGSI 2: DELETE (Hapus Permanen - Hybrid Auth) ---
 export async function DELETE(
     request: Request,
     props: { params: Promise<{ id: string }> } 
@@ -144,12 +163,16 @@ export async function DELETE(
             });
 
             if (!leaveRequest) {
-                // Lempar error khusus agar bisa ditangkap di catch block sebagai 404
                 throw new Error("P2025"); 
             }
 
-            // B. Logika Refund: Kembalikan jatah cuti HANYA JIKA Usernya masih ada
-            // (Mencegah error foreign key jika user sudah dihapus duluan)
+            // B. Hapus Data Approval Terkait Dulu (PENTING AGAR TIDAK ERROR FOREIGN KEY)
+            // Karena relasinya ada di LeaveApproval, kita hapus itu dulu
+            await tx.leaveApproval.deleteMany({
+                where: { leaveRequestId: requestIdToDelete }
+            });
+
+            // C. Logika Refund Jatah Cuti sebelum hapus
             if (leaveRequest.status === 'APPROVED' && leaveRequest.leaveType === 'ANNUAL') {
                 const userExists = await tx.user.findUnique({
                     where: { id: leaveRequest.employeeId }
@@ -167,7 +190,7 @@ export async function DELETE(
                 }
             }
 
-            // C. Hapus Data Cuti
+            // D. Hapus Data Cuti Utama
             await tx.leaveRequest.delete({
                 where: { id: requestIdToDelete },
             });
@@ -178,12 +201,10 @@ export async function DELETE(
     } catch (error: any) {
         console.error("Delete Error:", error);
 
-        // Menangani Error Prisma "Record Not Found" (P2025)
         if (error.message === "P2025" || error.code === 'P2025') {
             return NextResponse.json({ error: 'Data cuti tidak ditemukan (mungkin ID salah atau sudah dihapus).' }, { status: 404 });
         }
 
-        // Tampilkan detail error agar bisa didebug di Postman
         return NextResponse.json({ 
             error: 'Gagal menghapus data.', 
             details: error.message 
