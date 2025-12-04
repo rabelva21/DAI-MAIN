@@ -54,7 +54,7 @@ export async function GET(request: Request) {
                 orderBy: {
                     createdAt: 'desc',
                 },
-                // PERBAIKAN: Ambil data approval -> hrd
+                // PERBAIKAN: Gunakan relasi approval -> hrd, bukan hrdCommentBy langsung
                 include: {
                     approval: {
                         include: {
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
             }),
         ]);
 
-        // Transform data agar sesuai format frontend (hrdCommentBy)
+        // MAPPING DATA: Agar frontend tetap menerima properti 'hrdComment' dan 'hrdCommentBy'
         const formattedRequests = rawRequests.map((req) => ({
             ...req,
             hrdComment: req.approval?.comment || null,

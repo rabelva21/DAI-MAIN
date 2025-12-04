@@ -12,19 +12,19 @@ export async function POST(request: Request) {
 
         if (!email || !password) {
             return NextResponse.json(
-                { error: 'Email dan password dibutuhkan.' },
+                { error: 'Email dan password dibutuhkan.' }, 
                 { status: 400 }
             );
         }
 
+        // 1. Cek di tabel Karyawan
+        const karyawan = await prisma.karyawan.findUnique({ 
+             where: { email }
+        });
+
         let user: any = null;
         let role = '';
         let departmentId: string | null = null;
-
-        // 1. Cek di tabel Karyawan
-        const karyawan = await prisma.karyawan.findUnique({
-             where: { email }
-        });
 
         if (karyawan) {
             user = karyawan;
@@ -32,10 +32,10 @@ export async function POST(request: Request) {
             departmentId = karyawan.departmentId;
         } else {
             // 2. Jika tidak ada, cek di tabel HRD
-            const hrd = await prisma.hRD.findUnique({
+            const hrd = await prisma.hRD.findUnique({ 
                 where: { email }
            });
-
+           
            if (hrd) {
                user = hrd;
                role = 'HRD';
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
         if (!user) {
             return NextResponse.json(
-                { error: 'Kredensial tidak valid.' },
+                { error: 'Kredensial tidak valid.' }, 
                 { status: 401 }
             );
         }
@@ -54,38 +54,38 @@ export async function POST(request: Request) {
 
         if (!passwordMatch) {
             return NextResponse.json(
-                { error: 'Kredensial tidak valid.' },
+                { error: 'Kredensial tidak valid.' }, 
                 { status: 401 }
             );
         }
 
         const token = jwt.sign(
-            {
-                userId: user.id,
-                role: role,
+            { 
+                userId: user.id, 
+                role: role, 
                 departmentId: departmentId
-            },
-            JWT_SECRET,
+            }, 
+            JWT_SECRET, 
             { expiresIn: '1d' }
         );
-
+        
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { password: userPassword, ...userData } = user;
 
         return NextResponse.json(
-            {
-                user: { ...userData, role },
+            { 
+                user: { ...userData, role }, 
                 message: "Login Berhasil",
-                accessToken: token
-            },
+                accessToken: token 
+            }, 
             { status: 200 }
         );
 
     } catch (error) {
         console.error("Login API Error:", error);
         return NextResponse.json(
-            { error: 'Internal Server Error' },
-            { status: 500 }
+            { error: 'Internal Server Error' }, 
+            { status: 500 } 
         );
     }
 }
