@@ -20,24 +20,17 @@ export async function GET(request: Request) {
     if (!userId) {
         const authorizationHeader = request.headers.get('authorization');
         const token = authorizationHeader?.split(' ')[1];
-
         if (token) {
             try {
                 const decoded: any = jwt.verify(token, JWT_SECRET);
                 userId = decoded.userId;
                 userRole = decoded.role;
-            } catch (e) {
-                console.error("Token invalid");
-            }
+            } catch (e) {}
         }
     }
 
-    if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized: Harap login.' }, { status: 401 });
-    }
-
-    if (userRole !== 'EMPLOYEE') {
-        return NextResponse.json({ error: 'Akses ditolak: Hanya untuk Karyawan.' }, { status: 403 });
+    if (!userId || userRole !== 'EMPLOYEE') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -51,10 +44,7 @@ export async function GET(request: Request) {
         const [rawRequests, totalCount] = await prisma.$transaction([
             prisma.leaveRequest.findMany({
                 where: whereClause,
-                orderBy: {
-                    createdAt: 'desc',
-                },
-                // PERBAIKAN: Gunakan relasi approval -> hrd, bukan hrdCommentBy langsung
+                orderBy: { createdAt: 'desc' },
                 include: {
                     approval: {
                         include: {
@@ -67,12 +57,9 @@ export async function GET(request: Request) {
                 skip: skip,
                 take: limit,
             }),
-            prisma.leaveRequest.count({
-                where: whereClause,
-            }),
+            prisma.leaveRequest.count({ where: whereClause }),
         ]);
 
-        // MAPPING DATA: Agar frontend tetap menerima properti 'hrdComment' dan 'hrdCommentBy'
         const formattedRequests = rawRequests.map((req) => ({
             ...req,
             hrdComment: req.approval?.comment || null,
@@ -85,9 +72,6 @@ export async function GET(request: Request) {
         });
     } catch (error) {
         console.error("History API Error:", error);
-        return NextResponse.json(
-            { error: 'Internal Server Error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

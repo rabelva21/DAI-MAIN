@@ -3,48 +3,20 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import {
-    Check,
-    X,
-    Eye,
-    ExternalLink,
-    Paperclip,
-    Trash2,
-} from 'lucide-react';
+import { Check, X, Eye, ExternalLink, Paperclip, Trash2 } from 'lucide-react';
 import useSWR, { useSWRConfig } from 'swr';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogClose,
-} from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { LeaveRequest } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { LEAVE_TYPE_LABELS, STATUS_LABELS, STATUS_BADGE_COLORS, LeaveType, LeaveStatus } from '@/lib/utils';
 
-// FIX: Menambahkan hrdComment secara eksplisit
+// PERBAIKAN: Type hrdComment ditambahkan
 type LeaveRequestWithDetails = LeaveRequest & {
     employee: { fullName: string; email: string; remainingLeave: number };
     department: { name: string } | null;
@@ -59,16 +31,23 @@ type ApiResponse = {
     limit: number;
 };
 
+const LEAVE_TYPE_LABELS: Record<string, string> = {
+    ANNUAL: 'Cuti Tahunan',
+    SICK: 'Cuti Sakit',
+    MATERNITY: 'Cuti Melahirkan',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+    PENDING: 'Menunggu',
+    APPROVED: 'Disetujui',
+    REJECTED: 'Ditolak',
+    CANCELLED: 'Dibatalkan',
+};
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 const ITEMS_PER_PAGE = 10;
 
-const isValidDate = (date: Date | string) => {
-    const d = new Date(date);
-    return !isNaN(d.getTime());
-};
-
 const formatDate = (date: Date | string) => {
-    if (!isValidDate(date)) return 'Tanggal tidak valid';
     return format(new Date(date), 'dd MMM yyyy', { locale: idLocale });
 };
 
@@ -100,20 +79,12 @@ export function LeaveTable() {
     const [reviewAction, setReviewAction] = useState<'APPROVED' | 'REJECTED' | null>(null);
     const [reviewNotes, setReviewNotes] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<LeaveStatus | 'all'>('all');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
 
-    // Reset page jika filter berubah
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [statusFilter, searchQuery]);
+    useEffect(() => { setCurrentPage(1); }, [statusFilter, searchQuery]);
 
-    const {
-        data: apiResponse,
-        error,
-        mutate,
-        isLoading,
-    } = useSWR<ApiResponse>(
+    const { data: apiResponse, error, mutate, isLoading } = useSWR<ApiResponse>(
         `/api/admin/leaves?status=${statusFilter}&search=${searchQuery}&page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
         fetcher
     );
@@ -125,10 +96,7 @@ export function LeaveTable() {
         setIsDetailOpen(true);
     };
 
-    const handleReview = (
-        request: LeaveRequestWithDetails,
-        action: 'APPROVED' | 'REJECTED'
-    ) => {
+    const handleReview = (request: LeaveRequestWithDetails, action: 'APPROVED' | 'REJECTED') => {
         setSelectedRequest(request);
         setReviewAction(action);
         setReviewNotes(request.hrdComment || ''); 
@@ -136,11 +104,7 @@ export function LeaveTable() {
     };
     
     const handleDelete = async (id: string, employeeName: string) => {
-        const confirmed = window.confirm(
-            `Hapus permanen data ${employeeName}?`
-        );
-        if (!confirmed) return;
-
+        if (!confirm(`Hapus permanen data ${employeeName}?`)) return;
         try {
             const res = await fetch(`/api/admin/leaves/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Gagal menghapus');
@@ -155,29 +119,19 @@ export function LeaveTable() {
     const handleSubmitReview = async () => {
         if (!selectedRequest || !reviewAction) return;
         setIsReviewLoading(true);
-
         try {
             const res = await fetch(`/api/admin/leaves/${selectedRequest.id}`, { 
                 method: 'PATCH', 
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    newStatus: reviewAction,
-                    hrdComment: reviewNotes,
-                }),
+                body: JSON.stringify({ newStatus: reviewAction, hrdComment: reviewNotes }),
             });
-
             if (!res.ok) throw new Error('Gagal mereview');
-
             mutate();
             globalMutate('/api/admin/department-stats');
             globalMutate('/api/admin/stats');
-
             setIsReviewOpen(false);
             setReviewNotes('');
-            toast({
-                title: 'Berhasil',
-                description: `Pengajuan telah ${reviewAction === 'APPROVED' ? 'disetujui' : 'ditolak'}.`,
-            });
+            toast({ title: 'Berhasil', description: `Pengajuan telah ${reviewAction === 'APPROVED' ? 'disetujui' : 'ditolak'}.` });
         } catch (error: any) {
             toast({ title: 'Error', description: error.message, variant: 'destructive' });
         } finally {
@@ -185,12 +139,14 @@ export function LeaveTable() {
         }
     };
 
-    const getStatusBadge = (status: LeaveStatus) => {
-        return (
-            <Badge variant="outline" className={`shrink-0 ${STATUS_BADGE_COLORS[status]}`}>
-                {STATUS_LABELS[status]}
-            </Badge>
-        );
+    const getStatusBadge = (status: string) => {
+        const styles: Record<string, string> = {
+            PENDING: 'bg-gray-100 text-gray-800 border-gray-300',
+            APPROVED: 'bg-green-50 text-green-700 border-green-200',
+            REJECTED: 'bg-red-50 text-red-700 border-red-200',
+            CANCELLED: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        };
+        return <Badge variant="outline" className={`shrink-0 ${styles[status]}`}>{STATUS_LABELS[status]}</Badge>;
     };
 
     return (
@@ -210,17 +166,9 @@ export function LeaveTable() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {error && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center text-red-500">Gagal memuat data.</TableCell>
-                          </TableRow>
-                        )}
+                        {error && <TableRow><TableCell colSpan={6} className="text-center text-red-500">Gagal memuat data.</TableCell></TableRow>}
                         {isLoading && <TableLoadingSkeleton />}
-                        {!isLoading && requests && requests.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center text-gray-500">Tidak ada data.</TableCell>
-                          </TableRow>
-                        )}
+                        {!isLoading && requests && requests.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-gray-500">Tidak ada data.</TableCell></TableRow>}
                         {requests?.map((request) => (
                           <TableRow key={request.id} className="hover:bg-gray-50">
                             <TableCell className="font-medium text-black">
@@ -229,20 +177,15 @@ export function LeaveTable() {
                             </TableCell>
                             <TableCell className="text-gray-700">
                               <div className="flex items-center gap-2">
-                                {LEAVE_TYPE_LABELS[request.leaveType as LeaveType]}
+                                {LEAVE_TYPE_LABELS[request.leaveType]}
                                 {request.proofUrl && (
-                                  <Tooltip>
-                                    <TooltipTrigger><Paperclip className="h-3 w-3 text-blue-500" /></TooltipTrigger>
-                                    <TooltipContent><p>Ada lampiran</p></TooltipContent>
-                                  </Tooltip>
+                                  <Tooltip><TooltipTrigger><Paperclip className="h-3 w-3 text-blue-500" /></TooltipTrigger><TooltipContent><p>Ada lampiran</p></TooltipContent></Tooltip>
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-gray-700 text-xs">
-                              {formatDate(request.startDate)} - {formatDate(request.endDate)}
-                            </TableCell>
+                            <TableCell className="text-gray-700 text-xs">{formatDate(request.startDate)} - {formatDate(request.endDate)}</TableCell>
                             <TableCell className="text-gray-700">{request.daysTaken} hari</TableCell>
-                            <TableCell>{getStatusBadge(request.status as LeaveStatus)}</TableCell>
+                            <TableCell>{getStatusBadge(request.status)}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <Button size="sm" variant="outline" onClick={() => handleViewDetail(request)}><Eye className="h-4 w-4" /></Button>
@@ -264,28 +207,12 @@ export function LeaveTable() {
 
                 <Dialog open={isDetailOpen} onOpenChange={(open) => { setIsDetailOpen(open); if(!open) setSelectedRequest(null); }}>
                     <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Detail Pengajuan</DialogTitle>
-                            <DialogDescription>{selectedRequest?.employee.fullName}</DialogDescription>
-                        </DialogHeader>
+                        <DialogHeader><DialogTitle>Detail Pengajuan</DialogTitle><DialogDescription>{selectedRequest?.employee.fullName}</DialogDescription></DialogHeader>
                         {selectedRequest && (
                             <div className="grid gap-4 py-4 text-sm">
-                                <div className="grid grid-cols-3 gap-4">
-                                    <Label>Alasan</Label>
-                                    <span className="col-span-2">{selectedRequest.reason}</span>
-                                </div>
-                                {selectedRequest.proofUrl && (
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <Label>Bukti</Label>
-                                        <a href={selectedRequest.proofUrl} target="_blank" className="col-span-2 text-blue-600 flex items-center gap-1">Lihat <ExternalLink className="h-3 w-3"/></a>
-                                    </div>
-                                )}
-                                {(selectedRequest.hrdComment || selectedRequest.hrdCommentBy) && (
-                                    <div className="grid grid-cols-3 gap-4 border-t pt-2">
-                                        <Label>HRD ({selectedRequest.hrdCommentBy?.fullName})</Label>
-                                        <span className="col-span-2">{selectedRequest.hrdComment}</span>
-                                    </div>
-                                )}
+                                <div className="grid grid-cols-3 gap-4"><Label>Alasan</Label><span className="col-span-2">{selectedRequest.reason}</span></div>
+                                {selectedRequest.proofUrl && <div className="grid grid-cols-3 gap-4"><Label>Bukti</Label><a href={selectedRequest.proofUrl} target="_blank" className="col-span-2 text-blue-600 flex items-center gap-1">Lihat <ExternalLink className="h-3 w-3"/></a></div>}
+                                {(selectedRequest.hrdComment || selectedRequest.hrdCommentBy) && <div className="grid grid-cols-3 gap-4 border-t pt-2"><Label>HRD</Label><span className="col-span-2">{selectedRequest.hrdComment} ({selectedRequest.hrdCommentBy?.fullName})</span></div>}
                             </div>
                         )}
                         <DialogFooter><DialogClose asChild><Button variant="secondary">Tutup</Button></DialogClose></DialogFooter>

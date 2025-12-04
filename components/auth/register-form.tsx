@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
-// PERBAIKAN: Gunakan 'import type' agar tidak crash di browser
+// PERBAIKAN: Import type only
 import type { Department } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -76,9 +76,7 @@ export function RegisterForm() {
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
 
@@ -103,20 +101,13 @@ export function RegisterForm() {
     <Card className="border-gray-200">
       <CardHeader>
          <div className="w-full">
-          <Button
-            asChild
-            variant="ghost"
-            className="mb-2 text-gray-600 hover:text-black"
-          >
+          <Button asChild variant="ghost" className="mb-2 text-gray-600 hover:text-black">
             <Link href="/login">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Kembali
+              <ArrowLeft className="h-4 w-4 mr-2" /> Kembali
             </Link>
           </Button>
         </div>
-        <CardTitle className="text-center text-2xl text-black">
-          Buat Akun
-        </CardTitle>
+        <CardTitle className="text-center text-2xl text-black">Buat Akun</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -129,75 +120,36 @@ export function RegisterForm() {
               </Alert>
             )}
 
-            <FormField
-              control={form.control}
-              name="fullName"
-              render={({ field }) => (
+            <FormField control={form.control} name="fullName" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-black">Nama Lengkap</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Nama Anda"
-                      {...field}
-                      disabled={isLoading}
-                      className="border-gray-300"
-                    />
-                  </FormControl>
+                  <FormControl><Input placeholder="Nama Anda" {...field} disabled={isLoading} className="border-gray-300" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
+            <FormField control={form.control} name="email" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-black">Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="nama@ptdai.com"
-                      {...field}
-                      disabled={isLoading}
-                      className="border-gray-300"
-                    />
-                  </FormControl>
+                  <FormControl><Input placeholder="nama@ptdai.com" {...field} disabled={isLoading} className="border-gray-300" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="departmentId"
-              render={({ field }) => (
+            <FormField control={form.control} name="departmentId" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-black">Departemen</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    disabled={isLoading || !departments}
-                  >
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading || !departments}>
                     <FormControl>
                       <SelectTrigger className="border-gray-300">
                         <SelectValue placeholder="Pilih departemen Anda" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {deptError && (
-                        <SelectItem value="error" disabled>
-                          Gagal memuat departemen
-                        </SelectItem>
-                      )}
-                      {!departments && !deptError && (
-                        <SelectItem value="loading" disabled>
-                          Memuat...
-                        </SelectItem>
-                      )}
                       {departments?.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </SelectItem>
+                        <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -206,51 +158,25 @@ export function RegisterForm() {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
+            <FormField control={form.control} name="password" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-black">Password</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="Minimal 8 karakter"
-                      {...field}
-                      disabled={isLoading}
-                      className="border-gray-300"
-                    />
-                  </FormControl>
+                  <FormControl><Input type="password" placeholder="Minimal 8 karakter" {...field} disabled={isLoading} className="border-gray-300" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
+            <FormField control={form.control} name="confirmPassword" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-black">Konfirmasi Password</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="Ulangi password"
-                      {...field}
-                      disabled={isLoading}
-                      className="border-gray-300"
-                    />
-                  </FormControl>
+                  <FormControl><Input type="password" placeholder="Ulangi password" {...field} disabled={isLoading} className="border-gray-300" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <Button
-              type="submit"
-              className="w-full bg-red-600 hover:bg-red-700"
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={isLoading}>
               {isLoading ? 'Mendaftarkan...' : 'Daftar'}
             </Button>
           </form>
