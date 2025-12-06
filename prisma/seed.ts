@@ -18,6 +18,7 @@ async function main() {
   const engineering = await prisma.department.create({ data: { name: 'Engineering', maxConcurrentLeave: 2 } });
   const hrDept = await prisma.department.create({ data: { name: 'Human Resources', maxConcurrentLeave: 2 } });
   await prisma.department.create({ data: { name: 'Marketing', maxConcurrentLeave: 2 } });
+  await prisma.department.create({ data: { name: 'Finance', maxConcurrentLeave: 2 } });
   
   // 2. Buat Akun HRD
   console.log('Membuat Akun HRD...');
@@ -43,6 +44,7 @@ async function main() {
     },
   });
 
+  
   console.log('Seeding selesai! ✨');
 }
 
