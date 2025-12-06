@@ -41,9 +41,34 @@ async function handleReview(request: Request) {
 
         const leaveRequest = await prisma.leaveRequest.findUnique({
             where: { id: requestId },
+            include: { department: true } // Include department
         });
 
         if (!leaveRequest) return NextResponse.json({ error: 'Request not found' }, { status: 404 });
+
+        // --- VALIDASI TAMBAHAN: CEK KUOTA DEPARTEMEN ---
+        if (newStatus === 'APPROVED' && leaveRequest.departmentId && leaveRequest.status !== 'APPROVED') {
+             const maxQuota = leaveRequest.department?.maxConcurrentLeave || 0;
+             const overlappingRequests = await prisma.leaveRequest.count({
+                 where: {
+                     departmentId: leaveRequest.departmentId,
+                     status: 'APPROVED',
+                     id: { not: requestId },
+                     AND: [
+                         { startDate: { lte: leaveRequest.endDate } },
+                         { endDate: { gte: leaveRequest.startDate } },
+                     ],
+                 },
+             });
+ 
+             if (overlappingRequests >= maxQuota) {
+                 return NextResponse.json(
+                     { error: `Kuota Departemen Penuh! Sudah ada ${overlappingRequests}/${maxQuota} orang approved.` }, 
+                     { status: 400 }
+                 );
+             }
+        }
+        // -----------------------------------------------------
 
         // Transaksi
         await prisma.$transaction(async (tx) => {
